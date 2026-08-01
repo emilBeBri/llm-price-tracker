@@ -83,6 +83,7 @@ single-source, never guessed at.
 | `google` | ai.google.dev pricing | HTML |
 | `deepseek` | api-docs.deepseek.com pricing | HTML |
 | `llm-prices.com` | Simon Willison's aggregated feed | JSON |
+| `openrouter` | openrouter.ai `/api/v1/models` | JSON |
 
 The `Accept` header is per-source and load-bearing. These sites
 content-negotiate, and the same URL yields genuinely different documents:
@@ -90,10 +91,31 @@ OpenAI's markdown is 19KB of clean pipe-tables covering every model family,
 while its HTML is 587KB that renders half the tables client-side. Getting this
 wrong fed markdown to an HTML parser and produced zero models for days.
 
-The aggregator is kept deliberately, as a cross-check rather than a
-replacement. It is a curated human artifact — hand-edited per-vendor JSON, built
-and published on push with **no schedule** — so it is exactly as fresh as its
-author's last commit. Independent, and therefore useful; not authoritative.
+The two aggregators are kept deliberately, as cross-checks rather than
+replacements, and neither can ever authorize a write. Simon's feed is a curated
+human artifact — hand-edited per-vendor JSON, built and published on push with
+**no schedule** — so it is exactly as fresh as its author's last commit.
+OpenRouter is the one clean machine-readable feed in the ecosystem (~700 models,
+per-token prices), but it prices *its own routing*, which legitimately diverges
+from what a vendor bills directly, and its `author/model` slugs only sometimes
+coincide with vendor wire ids. Both are independent, and therefore useful; the
+payoff showed on the first run with both: OpenRouter agreed with OpenAI's page
+on `o3` at 2/8, isolating the feed's stale 10/40 as the outlier. Conflicts in
+which no vendor page participates are summarized in one line rather than
+tabled — routing-vs-list disagreements are permanent, and a table that shows
+the same benign rows every day trains you to ignore the real one.
+
+Every fetch's raw body is snapshotted to
+`$XDG_CACHE_HOME/llm-price-tracker/raw/<date>/<source>.<ext>` (14 days kept),
+so "what did the page actually say when the parser broke?" stays answerable
+after the live page has moved on. It paid for itself on its first run: the
+snapshot is how OpenRouter's `-1` price sentinel on its meta-routers was
+diagnosed.
+
+Two write-time guards keep garbage out of the book: a negative rate is rejected
+at the model level (no vendor pays you), and a rate above $1,000/M refuses to
+save — the classic per-token vs per-1M unit bug is a factor of exactly 1e6, so
+it lands absurdly far outside that ceiling.
 
 ## Wire the exit code to something
 

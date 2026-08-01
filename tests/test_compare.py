@@ -158,3 +158,18 @@ def test_apply_writes_new_and_changed_only():
     assert after.models['old'].tiers[STANDARD].input == 9.0
     assert after.models['fresh'].vendor == 'openai'
     assert after.models['fresh'].sources == ['openai']
+
+
+def test_two_aggregators_agreeing_still_do_not_corroborate():
+    """OpenRouter and the feed can echo the same stale or routing-margin price.
+
+    Agreement between two non-primary documents is not vendor confirmation —
+    only a first-party page unlocks a write.
+    """
+    p = Price(input=10.0, output=40.0)
+    verdicts = reconcile(
+        [_res('llm-prices.com', {'o3': p}), _res('openrouter', {'o3': p})]
+    )
+    assert verdicts['o3'].agreement is Agreement.AGREE
+    deltas = diff_book(PriceBook(updated_at='2026-01-01'), verdicts)
+    assert [is_corroborated(d) for d in deltas] == [False]

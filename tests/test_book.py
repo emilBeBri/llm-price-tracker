@@ -87,3 +87,25 @@ def test_shipped_book_parses_and_is_non_empty():
         std = entry.tiers.get(STANDARD)
         assert std is not None, f'{model_id} has no standard tier'
         assert std.input >= 0 and std.output >= 0
+
+
+def test_save_book_refuses_a_unit_explosion(tmp_path):
+    """Per-token vs per-1M is a factor of exactly 1e6 — the classic bug this
+    gate exists for. It must fail the WRITE, before garbage reaches the diff."""
+    b = PriceBook(
+        updated_at='2026-08-01',
+        models={
+            'buggy': ModelEntry(
+                id='buggy',
+                vendor='acme',
+                tiers={STANDARD: Price(input=140_000.0, output=280_000.0)},
+            )
+        },
+    )
+    with pytest.raises(ValueError, match='implausible'):
+        save_book(b, tmp_path / 'prices.json')
+
+
+def test_negative_price_is_rejected_by_the_model():
+    with pytest.raises(ValueError):
+        Price(input=-1.0, output=2.0)

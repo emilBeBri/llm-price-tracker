@@ -24,12 +24,18 @@ class Price(BaseModel):
     `None` means the vendor publishes no such rate (not "free", and not
     "unknown-so-guess"). A consumer that wants a fallback multiplier must apply
     it itself — inventing one here would launder a guess into a recorded fact.
+
+    Negative rates are rejected at the model level: no vendor pays you to use
+    their API, so a negative can only be a parser bug. The upper sanity bound
+    lives in `save_book`, not here — a heuristic ceiling belongs at write time,
+    where it blocks recording garbage without bricking reads of a book that a
+    legitimately expensive future model would otherwise invalidate.
     """
 
-    input: float
-    output: float
-    cache_read: float | None = None
-    cache_write: float | None = None
+    input: float = Field(ge=0.0)
+    output: float = Field(ge=0.0)
+    cache_read: float | None = Field(default=None, ge=0.0)
+    cache_write: float | None = Field(default=None, ge=0.0)
 
 
 class ModelEntry(BaseModel):

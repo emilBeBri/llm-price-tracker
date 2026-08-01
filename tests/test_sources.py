@@ -10,6 +10,7 @@ from llm_price_tracker.sources import (
     DeepSeekSource,
     LlmPricesSource,
     OpenAISource,
+    OpenRouterSource,
 )
 from llm_price_tracker.sources.base import Source, SourceResult, dollars
 from llm_price_tracker.models import Price
@@ -211,3 +212,115 @@ def test_network_failure_is_contained_in_the_result():
     r = _Stub({}).fetch(_Client(boom=True))
     assert not r.ok and 'RuntimeError' in r.note
     assert isinstance(r, SourceResult)
+
+
+# --------------------------------------------------------------------------- #
+# OpenRouter: per-TOKEN decimal strings under author/model slugs. The traps are
+# the unit (x1e6), the id taxonomy, and routing products that are not vendor
+# list prices.
+# --------------------------------------------------------------------------- #
+OPENROUTER_JSON = """
+{"data": [
+  {"id": "deepseek/deepseek-v4-flash-0731", "context_length": 1048576,
+   "pricing": {"prompt": "0.00000014", "completion": "0.00000028",
+               "input_cache_read": "0.0000000028"}},
+  {"id": "openai/gpt-5.6-luna",
+   "pricing": {"prompt": "0.0000002", "completion": "0.0000012",
+               "input_cache_read": "0.00000002"}},
+  {"id": "anthropic/claude-sonnet-5",
+   "pricing": {"prompt": "0.000002", "completion": "0.00001",
+               "input_cache_read": "0.0000002", "input_cache_write": "0.0000025"}},
+  {"id": "some-org/claude-sonnet-5",
+   "pricing": {"prompt": "0.000099", "completion": "0.000099"}},
+  {"id": "google/gemini-3-flash-preview:thinking",
+   "pricing": {"prompt": "0.0000005", "completion": "0.000003"}},
+  {"id": "meta-llama/llama-3.3-70b-instruct:free",
+   "pricing": {"prompt": "0", "completion": "0"}},
+  {"id": "acme/promo-model",
+   "pricing": {"prompt": "0", "completion": "0"}},
+  {"id": "openrouter/auto",
+   "pricing": {"prompt": "-1", "completion": "-1"}}
+]}
+"""
+
+
+def test_openrouter_strips_author_prefix_and_scales_per_token():
+    prices = OpenRouterSource().parse(OPENROUTER_JSON)
+    luna = prices['gpt-5.6-luna']
+    assert (luna.input, luna.output, luna.cache_read) == (0.2, 1.2, 0.02)
+    assert 'openai/gpt-5.6-luna' not in prices
+
+
+def test_openrouter_decimal_scaling_is_exact():
+    """Bit-exact floats, so no dust ever reaches the book or a diff."""
+    flash = OpenRouterSource().parse(OPENROUTER_JSON)['deepseek-v4-flash-0731']
+    assert flash.input == 0.14
+    assert flash.cache_read == 0.0028
+
+
+def test_openrouter_maps_the_cache_write_field():
+    sonnet = OpenRouterSource().parse(OPENROUTER_JSON)['claude-sonnet-5']
+    assert sonnet.cache_write == 2.5
+
+
+def test_openrouter_first_author_wins_a_suffix_collision():
+    """Two authors, same model suffix: a silent overwrite could pair one
+    author's input with another's output in the conflict table."""
+    assert OpenRouterSource().parse(OPENROUTER_JSON)['claude-sonnet-5'].input == 2.0
+
+
+def test_openrouter_skips_routing_variants_and_free_promos():
+    prices = OpenRouterSource().parse(OPENROUTER_JSON)
+    assert not any(':' in mid for mid in prices)
+    assert 'promo-model' not in prices, '0/0 is a routing promo, not a list price'
+
+
+def test_openrouter_treats_negative_as_no_price_not_a_rate():
+    """OpenRouter's meta-routers publish "-1" as a your-price-varies sentinel.
+
+    Found on the first live run: five `openrouter/*` rows carried -1/-1, which
+    Price (ge=0) rightly refused — taking the whole source down with them.
+    """
+    assert 'auto' not in OpenRouterSource().parse(OPENROUTER_JSON)
+
+
+# --------------------------------------------------------------------------- #
+# Raw-body capture: a bad parse must be post-mortemable after the page moved on.
+# --------------------------------------------------------------------------- #
+def test_fetch_keeps_the_raw_body_on_success():
+    r = _Stub({'wanted-1': Price(input=1, output=1)}).fetch(_Client(text='the page'))
+    assert r.ok and r.body == 'the page'
+
+
+def test_fetch_keeps_the_raw_body_when_the_parse_drifts():
+    """The whole point: 'what did the page say when we parsed 0 models?'"""
+    r = _Stub({}).fetch(_Client(text='the page'))
+    assert not r.ok and r.body == 'the page'
+
+
+def test_network_failure_leaves_body_none():
+    assert _Stub({}).fetch(_Client(boom=True)).body is None
+
+
+def test_save_snapshots_writes_by_content_type_and_prunes(tmp_path):
+    from llm_price_tracker.sources import save_snapshots
+
+    for stale in ('2020-01-01', '2020-01-02'):
+        (tmp_path / stale).mkdir()
+        (tmp_path / stale / 'x.md').write_text('old')
+
+    results = [
+        SourceResult('openrouter', 'u', True, body='{"data": []}'),
+        SourceResult('deepseek', 'u', True, body='<table></table>'),
+        SourceResult('openai', 'u', True, body='| Model |'),
+        SourceResult('anthropic', 'u', False, body=None),  # request failed
+    ]
+    day_dir = save_snapshots(results, root=tmp_path, keep_days=2)
+
+    assert (day_dir / 'openrouter.json').exists()
+    assert (day_dir / 'deepseek.html').exists()
+    assert (day_dir / 'openai.md').exists()
+    assert not (day_dir / 'anthropic.md').exists(), 'no body, nothing to keep'
+    kept = sorted(d.name for d in tmp_path.iterdir())
+    assert '2020-01-01' not in kept, 'oldest day pruned'
+    assert len(kept) == 2

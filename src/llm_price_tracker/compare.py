@@ -28,10 +28,12 @@ from .sources.base import SourceResult
 # and an aggregator's transcription, not a price change.
 EPSILON = 1e-9
 
-# Vendor pages outrank the aggregator when composing a book entry. Not because
-# the aggregator is bad, but because it is a hand-maintained mirror: when they
-# disagree the vendor is the primary document by construction.
-AGGREGATOR_SOURCES = frozenset({'llm-prices.com'})
+# Vendor pages outrank these when composing a book entry. Not because the
+# aggregators are bad, but because neither is the primary document: Simon's
+# feed is a hand-maintained mirror, and OpenRouter prices its own routing,
+# which can legitimately diverge from what the model author bills directly.
+# Members here widen conflict detection but never corroborate a write.
+AGGREGATOR_SOURCES = frozenset({'llm-prices.com', 'openrouter'})
 
 
 class Agreement(str, Enum):

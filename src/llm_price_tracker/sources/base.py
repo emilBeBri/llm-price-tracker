@@ -33,6 +33,9 @@ class SourceResult:
     prices: dict[str, Price] = field(default_factory=dict)
     # Why it failed, or what looked off about a success.
     note: str | None = None
+    # The raw fetched document, kept so a bad parse can be post-mortemed after
+    # the live page has moved on. None only when the HTTP request itself failed.
+    body: str | None = field(default=None, repr=False)
 
 
 def dollars(text: str) -> float | None:
@@ -74,13 +77,15 @@ class Source(ABC):
         """Turn a fetched page into {vendor model id: Price}. Empty == drifted."""
 
     def fetch(self, client) -> SourceResult:
+        body: str | None = None
         try:
             resp = client.get(self.url, headers={'Accept': self.accept})
             resp.raise_for_status()
-            prices = self.parse(resp.text)
+            body = resp.text
+            prices = self.parse(body)
         except Exception as e:  # noqa: BLE001 - one bad source must not kill a run
             return SourceResult(
-                self.name, self.url, False, note=f'{type(e).__name__}: {e}'
+                self.name, self.url, False, note=f'{type(e).__name__}: {e}', body=body
             )
 
         if not prices:
@@ -89,6 +94,7 @@ class Source(ABC):
                 self.url,
                 False,
                 note='fetched, but parsed 0 models — page structure changed',
+                body=body,
             )
         missing = [a for a in self.expect if not any(a in mid for mid in prices)]
         if self.expect and len(missing) == len(self.expect):
@@ -101,10 +107,13 @@ class Source(ABC):
                     f'parsed {len(prices)} rows but none match {list(self.expect)} '
                     f'— page structure changed'
                 ),
+                body=body,
             )
         note = (
             f'expected id(s) absent (renamed?): {", ".join(missing)}'
             if missing
             else None
         )
-        return SourceResult(self.name, self.url, True, prices=prices, note=note)
+        return SourceResult(
+            self.name, self.url, True, prices=prices, note=note, body=body
+        )

@@ -48,13 +48,18 @@ def _money(v: float | None) -> str:
 
 def _fetch_or_exit(timeout: float):
     try:
-        from .sources import fetch_all
+        from .sources import fetch_all, save_snapshots
     except ImportError as e:  # pragma: no cover - depends on install extras
         console.print(
             f'[red]Fetching needs the optional extra:[/] uv sync --extra fetch  ({e})'
         )
         raise typer.Exit(EXIT_SOURCE_BROKEN) from e
-    return fetch_all(timeout=timeout)
+    results = fetch_all(timeout=timeout)
+    try:
+        save_snapshots(results)
+    except OSError as e:  # snapshots are a debugging aid, never worth failing a run
+        console.print(f'[dim]raw snapshot skipped: {e}[/]')
+    return results
 
 
 def _report_sources(results) -> bool:
@@ -93,7 +98,14 @@ def check(
     sources_ok = _report_sources(results)
 
     verdicts = reconcile(results)
-    conflicts = [v for v in verdicts.values() if v.agreement is Agreement.CONFLICT]
+    all_conflicts = [v for v in verdicts.values() if v.agreement is Agreement.CONFLICT]
+    # Only disagreements a primary document participates in get the full
+    # table. Aggregator-vs-aggregator conflicts are permanent by nature —
+    # OpenRouter's routing prices legitimately diverge from list prices — and
+    # a table that shows the same benign rows every day teaches you to ignore
+    # the day a real one appears.
+    conflicts = [v for v in all_conflicts if v.vendor_value is not None]
+    agg_only = [v for v in all_conflicts if v.vendor_value is None]
 
     if conflicts:
         table = Table(
@@ -126,6 +138,13 @@ def check(
         table.caption_justify = 'left'
         table.caption_style = 'dim'
         console.print(table)
+
+    if agg_only:
+        names = ', '.join(sorted(v.model_id for v in agg_only))
+        console.print(
+            f'[dim]{len(agg_only)} aggregator-only disagreement(s), no vendor '
+            f'page involved (routing vs list prices): {names}[/]'
+        )
 
     book = load_book(book_path)
     deltas = diff_book(book, verdicts)
@@ -169,7 +188,7 @@ def check(
     console.print(
         f'\n[bold]{len(verdicts)}[/] models seen · '
         f'[green]{agree}[/] corroborated by 2+ sources · '
-        f'{single} single-source · [yellow]{len(conflicts)}[/] conflicting\n'
+        f'{single} single-source · [yellow]{len(all_conflicts)}[/] conflicting\n'
         f'[bold]{len(changed)}[/] book row(s) out of date · '
         f'{absent} book row(s) no source mentioned · '
         f'{uncorroborated_count} aggregator-only model(s) not tracked'
@@ -230,7 +249,9 @@ def refresh(
         )
         raise typer.Exit(EXIT_DRIFT)
 
-    updated = apply_deltas(book, deltas, updated_at=datetime.now(UTC).date().isoformat())
+    updated = apply_deltas(
+        book, deltas, updated_at=datetime.now(UTC).date().isoformat()
+    )
     save_book(updated, book_path)
     console.print(
         f'\n[green]Wrote {len(changed)} change(s)[/] to {book_path or DATA_PATH}'

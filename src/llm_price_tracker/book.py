@@ -16,6 +16,13 @@ from .models import STANDARD, ModelEntry, Price, PriceBook
 
 DATA_PATH = Path(__file__).resolve().parent / 'data' / 'prices.json'
 
+# The classic unit bug in this domain is per-token vs per-1M-tokens — a factor
+# of exactly 1e6, which turns $2/M into $2,000,000/M. No published rate today
+# is within an order of magnitude of this ceiling, so anything above it is far
+# more likely a conversion bug than a real price. A write-time heuristic, not a
+# model invariant: if a real $1,000+/M rate ever ships, raise the constant.
+MAX_SANE_MTOK = 1000.0
+
 _CACHE: PriceBook | None = None
 
 
@@ -33,7 +40,24 @@ def load_book(path: Path | None = None, *, refresh: bool = False) -> PriceBook:
     return _CACHE
 
 
+def _implausible_rates(book: PriceBook) -> list[str]:
+    bad: list[str] = []
+    for model_id, entry in book.models.items():
+        for tier, price in entry.tiers.items():
+            for rate_field in ('input', 'output', 'cache_read', 'cache_write'):
+                value = getattr(price, rate_field)
+                if value is not None and value > MAX_SANE_MTOK:
+                    bad.append(f'{model_id}.{tier}.{rate_field} = ${value}/M')
+    return bad
+
+
 def save_book(book: PriceBook, path: Path | None = None) -> None:
+    bad = _implausible_rates(book)
+    if bad:
+        raise ValueError(
+            'refusing to write implausible rates (per-token/per-1M unit bug?): '
+            + '; '.join(bad)
+        )
     target = path or DATA_PATH
     target.parent.mkdir(parents=True, exist_ok=True)
     # Trailing newline and sorted keys keep the committed diff readable — this

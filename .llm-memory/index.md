@@ -7,4 +7,10 @@ user has supplied — the agent NEVER writes into raw/.
 
 # topics
 
+## sources & corroboration
+- [[openrouter-aggregator-status]] — OpenRouter widens detection, never write
+  authority; `-1` sentinel, Decimal scaling, conflict-table split
+- [[deferred-structural-prices]] — price history / off-peak / context tiers
+  deferred with explicit triggers; research-report claims adopted vs rejected
+
 # orphans
