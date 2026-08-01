@@ -1,0 +1,330 @@
+# various not sorted #section
+
+# idiosyncratic linking to other dirs 
+symlinks/
+
+
+
+
+
+# Strict Exclusions (Optional/Data/Media)  #section
+
+*.csv
+*.tsv
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.[jJ][pP][gG]
+*.[jJ][pP][eE][gG]
+*.gif
+*.bmp
+*.svg
+*.PDF
+*.PNG
+*.GIF
+*.BMP
+*.SVG
+
+# Operating System Files  #section
+
+# Linux  #subsection
+.directory
+.Trash-*
+.nfs*
+
+# macOS  #subsection
+.DS_Store
+.AppleDouble
+.LSOverride
+.DocumentRevisions-V100
+.Spotlight-V100
+.Trashes
+.fseventsd
+.apdisk
+.VolumeIcon.icns
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+
+# Windows  #subsection
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.cab
+*.msi
+*.msm
+*.msp
+
+
+# Personal & Workflow  #section
+
+# Archiving & Trash  #subsection
+00-trash/
+00_trash/
+**/00-trash/
+**/00_trash/
+00-archive/
+archive/
+
+# Custom Directories  #subsection
+llms/
+nvim/
+downloads/
+input/
+symlinks/
+completions/
+spell/
+.omx/
+local-rag/
+
+# Temporary & Scratch  #subsection
+tmp/
+tmp-data/
+tmp-scripts/
+scratch/
+temp-pdfs/
+
+# Backups  #subsection
+*.bak
+*.save
+*.swp
+*~
+*~[0-9]*
+*.backup
+
+
+# IDEs & Tooling  #section
+
+# VS Code  #subsection
+.vscode/
+*.code-workspace
+
+# JetBrains / IntelliJ  #subsection
+.idea/
+.idea_modules/
+
+# Sublime Text  #subsection
+*.sublime-workspace
+
+# AI Agents  #subsection
+.claude/
+.claude.json
+.clawd-agents/
+
+# Environment Configs  #subsection
+.env
+.env.*
+.envrc
+.direnv/
+
+# Secrets & Credentials  #subsection
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.json
+credentials.json
+.httr-oauth
+
+
+# Python  #section
+
+
+
+# Caches & Bytecode  #subsection
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyre/
+.pytype/
+.nox/
+.tox/
+
+# Environments  #subsection
+.venv/
+venv/
+env/
+ENV/
+.Python
+.python-version
+
+# Packaging  #subsection
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+sdist/
+wheels/
+pip-log.txt
+.installed.cfg
+
+# Archives & Datasets  #subsection
+*.zip
+*.tar.gz
+*.iso
+*.qs
+*.fst
+*.feather
+*.pickle
+*.pkl
+
+
+# Data Science & R  #section
+
+# R Core & RStudio  #subsection
+.RData
+.Rhistory
+.Rproj.user/
+.Ruserdata
+.Renviron
+.Rapp.history
+*.Rcheck/
+
+# Jupyter  #subsection
+.ipynb_checkpoints/
+**/*.quarto_ipynb
+
+# Quarto & R Markdown  #subsection
+/_freeze/
+/.quarto/
+/_output/
+/_site/
+blogdown/
+public/ # if using Netlify
+*.utf8.md
+*.knit.md
+*_cache/
+
+# Spreadsheets & Presentations #subsection
+*.xlsx
+*.xls
+*.ods
+*.pptx
+*.ppt
+*.odp
+
+
+# Node.js  #section
+
+# NPM  #subsection
+node_modules/
+npm-debug.log*
+
+
+# Rust  #section
+
+# Cargo  #subsection
+target/
+.cargo/
+**/*.rs.bk
+
+
+# LaTeX  #section
+
+# Compilation outputs & packages  #subsection
+*.acn
+*.acr
+*.alg
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.brf
+*.cpt
+*.fls
+*.fot
+*.fdb_latexmk
+*.glg
+*.glo
+*.gls
+*.glsdefs
+*.idx
+*.ilg
+*.ind
+*.ist
+*.loa
+*.lof
+*.log
+*.lol
+*.lot
+*.maf
+*.map
+*.mlf
+*.mlt
+*.mtc
+*.mtc[0-9]
+*.mtc[1-9][0-9]
+*.nlo
+*.out
+*.run.xml
+*.synctex.gz
+*.synctex.gz(busy)
+*.synctex
+*.tdo
+*.tikz
+*.thm
+*.toc
+*-tikzDictionary
+*.eledsec[1-9]
+*.eledsec[1-9][0-9]
+*.eledsec[1-9][0-9][0-9]
+*.eledsec[1-9][0-9][0-9]R
+*.eledsec[1-9][0-9]R
+*.eledsec[1-9]R
+*.?end
+*.end
+*-gnuplottex-*
+*-concordance.tex
+*.sagetex.py
+*.sagetex.sage
+*.sagetex.scmd
+*.pyg
+*.pytxcode
+pythontex-files-*/
+sympy-plots-for-*.tex/
+*.mw
+
+
+
+# audio & video  #section
+
+*.mp3
+*.wav
+*.ogg
+*.flac
+*.aac
+*.m4a
+*.mp4
+*.avi
+*.mkv
+*.mov
+*.wmv
+*.flv
+*.webm
+*.mp4
+*.mov
+*.MP3
+*.WAV
+*.OGG
+*.FLAC
+*.AAC
+*.M4A
+*.MP4
+*.AVI
+*.MKV
+*.MOV
+*.WMV
+*.FLV
+*.WEBM
+*.MP4
+*.MOV
+
+
