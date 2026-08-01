@@ -105,31 +105,33 @@ consuming the signal — while a 5x price cut went unnoticed.
 - `1` — the book is out of date
 - `2` — a source broke (page structure drifted, or unreachable)
 
-```ini
-# ~/.config/systemd/user/llm-price-check.service
-[Unit]
-Description=Check LLM prices against vendor pages
+A systemd user timer ships in the dotfiles repo:
 
-[Service]
-Type=oneshot
-WorkingDirectory=%h/prog/prj/llm-price-tracker
-ExecStart=/usr/bin/env uv run llm-price-tracker check
-# Anything non-zero should reach you. Without this the tool is decorative.
-ExecStopPost=/bin/sh -c '[ "$EXIT_STATUS" = 0 ] || notify-send -u critical "LLM prices drifted" "llm-price-tracker check exited $EXIT_STATUS"'
+```
+.control-center/dotfiles/systemd/shared/llm-price-check.service
+.control-center/dotfiles/systemd/shared/llm-price-check.timer
 ```
 
-```ini
-# ~/.config/systemd/user/llm-price-check.timer
-[Unit]
-Description=Weekly LLM price check
+Deploy and enable:
 
-[Timer]
-OnCalendar=weekly
-Persistent=true
-
-[Install]
-WantedBy=timers.target
+```bash
+./dotfiles/systemd/build-systemd.zsh     # compiles shared/ + hosts/$(hostname) into in-use/
+systemctl --user daemon-reload
+systemctl --user enable --now llm-price-check.timer
+systemctl --user list-timers llm-price-check.timer
+systemctl --user start llm-price-check.service && \
+  systemctl --user status llm-price-check.service   # force one run
 ```
+
+Three choices in there are deliberate:
+
+- **`ExecStopPost` sends the notification.** Without a consumer the exit code is
+  decorative, which is exactly how the predecessor failed.
+- **`ExecCondition=ping` makes offline a SKIP, not a failure.** A laptop shut
+  for a week must not produce a queue of false alarms — those train you to
+  ignore the real one.
+- **Daily, not weekly.** Five HTTPS GETs cost nothing and a clean run is
+  silent; weekly is how you notice a 5x cut six days late.
 
 ## Adding a vendor
 
