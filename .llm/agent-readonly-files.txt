@@ -1,0 +1,30 @@
+# Agent read-only files
+#
+# One path per line, relative to the project root.
+# Blank lines and lines starting with # are ignored.
+#
+# Paths listed here remain visible to the LLM agent:
+# - read_file can read them
+# - fd / ripgrep / list_directory can reveal them
+# - write_file / replace_in_file / regex_replace_in_file cannot modify them
+#
+# Use this for important project files that are useful as context but should
+# not be edited by the agent without you changing this list first.
+#
+# Examples:
+# pyproject.toml
+# README.md
+# src/bebri_chat/adapters/llm_tools/filesystem_tools.py
+#
+# --- Per-model scoping (optional) ---
+# A line of the form [pattern] starts a section that applies ONLY when the
+# active model name matches the glob `pattern` (case-insensitive). Paths
+# before any [..] header, or under [*], are GLOBAL (apply to every model).
+# Matching uses fnmatch, so `claude-*-dev` matches all Anthropic-on-Azure
+# `-dev` models. A model gets the union of the global section plus every
+# matching scoped section. With no active model, only global/[*] apply
+# (fail-open). This is a soft guardrail, NOT a security sandbox.
+#
+# Example:
+# [claude-*-dev]
+# docs/anthropic-must-not-edit.md
