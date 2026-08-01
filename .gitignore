@@ -328,3 +328,7 @@ sympy-plots-for-*.tex/
 *.MOV
 
 
+
+# coverage artifacts #section
+.coverage
+htmlcov/

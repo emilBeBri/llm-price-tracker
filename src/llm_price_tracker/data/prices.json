@@ -1,0 +1,1155 @@
+{
+  "updated_at": "2026-08-01",
+  "models": {
+    "babbage-002": {
+      "id": "babbage-002",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 0.4,
+          "output": 0.4
+        }
+      },
+      "sources": [
+        "openai"
+      ]
+    },
+    "claude-fable-5": {
+      "id": "claude-fable-5",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 10.0,
+          "output": 50.0,
+          "cache_read": 1.0,
+          "cache_write": 12.5
+        }
+      },
+      "sources": [
+        "anthropic",
+        "llm-prices.com"
+      ]
+    },
+    "claude-haiku-3.5": {
+      "id": "claude-haiku-3.5",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 0.8,
+          "output": 4.0,
+          "cache_read": 0.08,
+          "cache_write": 1.0
+        }
+      },
+      "sources": [
+        "anthropic"
+      ]
+    },
+    "claude-haiku-4.5": {
+      "id": "claude-haiku-4.5",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 1.0,
+          "output": 5.0,
+          "cache_read": 0.1,
+          "cache_write": 1.25
+        }
+      },
+      "sources": [
+        "anthropic"
+      ]
+    },
+    "claude-mythos-5": {
+      "id": "claude-mythos-5",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 10.0,
+          "output": 50.0,
+          "cache_read": 1.0,
+          "cache_write": 12.5
+        }
+      },
+      "sources": [
+        "anthropic",
+        "llm-prices.com"
+      ]
+    },
+    "claude-opus-4": {
+      "id": "claude-opus-4",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 15.0,
+          "output": 75.0,
+          "cache_read": 1.5,
+          "cache_write": 18.75
+        }
+      },
+      "sources": [
+        "anthropic",
+        "llm-prices.com"
+      ]
+    },
+    "claude-opus-4.1": {
+      "id": "claude-opus-4.1",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 15.0,
+          "output": 75.0,
+          "cache_read": 1.5,
+          "cache_write": 18.75
+        }
+      },
+      "sources": [
+        "anthropic"
+      ]
+    },
+    "claude-opus-4.5": {
+      "id": "claude-opus-4.5",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 5.0,
+          "output": 25.0,
+          "cache_read": 0.5,
+          "cache_write": 6.25
+        }
+      },
+      "sources": [
+        "anthropic"
+      ]
+    },
+    "claude-opus-4.6": {
+      "id": "claude-opus-4.6",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 5.0,
+          "output": 25.0,
+          "cache_read": 0.5,
+          "cache_write": 6.25
+        }
+      },
+      "sources": [
+        "anthropic"
+      ]
+    },
+    "claude-opus-4.7": {
+      "id": "claude-opus-4.7",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 5.0,
+          "output": 25.0,
+          "cache_read": 0.5,
+          "cache_write": 6.25
+        }
+      },
+      "sources": [
+        "anthropic"
+      ]
+    },
+    "claude-opus-4.8": {
+      "id": "claude-opus-4.8",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 5.0,
+          "output": 25.0,
+          "cache_read": 0.5,
+          "cache_write": 6.25
+        }
+      },
+      "sources": [
+        "anthropic"
+      ]
+    },
+    "claude-opus-5": {
+      "id": "claude-opus-5",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 5.0,
+          "output": 25.0,
+          "cache_read": 0.5,
+          "cache_write": 6.25
+        }
+      },
+      "sources": [
+        "anthropic"
+      ]
+    },
+    "claude-sonnet-4": {
+      "id": "claude-sonnet-4",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 3.0,
+          "output": 15.0,
+          "cache_read": 0.3,
+          "cache_write": 3.75
+        }
+      },
+      "sources": [
+        "anthropic"
+      ]
+    },
+    "claude-sonnet-4.5": {
+      "id": "claude-sonnet-4.5",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 3.0,
+          "output": 15.0,
+          "cache_read": 0.3,
+          "cache_write": 3.75
+        }
+      },
+      "sources": [
+        "anthropic",
+        "llm-prices.com"
+      ]
+    },
+    "claude-sonnet-4.6": {
+      "id": "claude-sonnet-4.6",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 3.0,
+          "output": 15.0,
+          "cache_read": 0.3,
+          "cache_write": 3.75
+        }
+      },
+      "sources": [
+        "anthropic"
+      ]
+    },
+    "claude-sonnet-5": {
+      "id": "claude-sonnet-5",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 10.0,
+          "cache_read": 0.2,
+          "cache_write": 2.5
+        }
+      },
+      "sources": [
+        "anthropic",
+        "llm-prices.com"
+      ]
+    },
+    "davinci-002": {
+      "id": "davinci-002",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 2.0
+        }
+      },
+      "sources": [
+        "openai"
+      ]
+    },
+    "deepseek-v4-flash": {
+      "id": "deepseek-v4-flash",
+      "vendor": "deepseek",
+      "tiers": {
+        "standard": {
+          "input": 0.14,
+          "output": 0.28,
+          "cache_read": 0.0028
+        }
+      },
+      "sources": [
+        "deepseek",
+        "llm-prices.com"
+      ]
+    },
+    "deepseek-v4-pro": {
+      "id": "deepseek-v4-pro",
+      "vendor": "deepseek",
+      "tiers": {
+        "standard": {
+          "input": 0.435,
+          "output": 0.87,
+          "cache_read": 0.003625
+        }
+      },
+      "sources": [
+        "deepseek",
+        "llm-prices.com"
+      ]
+    },
+    "gemini-2.0-flash": {
+      "id": "gemini-2.0-flash",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.1,
+          "output": 0.4,
+          "cache_read": 1.0
+        }
+      },
+      "sources": [
+        "google",
+        "llm-prices.com"
+      ]
+    },
+    "gemini-2.0-flash-lite": {
+      "id": "gemini-2.0-flash-lite",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.075,
+          "output": 0.3
+        }
+      },
+      "sources": [
+        "google",
+        "llm-prices.com"
+      ]
+    },
+    "gemini-2.5-computer-use-preview-10-2025": {
+      "id": "gemini-2.5-computer-use-preview-10-2025",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 1.25,
+          "output": 10.0
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-2.5-flash": {
+      "id": "gemini-2.5-flash",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.3,
+          "output": 2.5,
+          "cache_read": 0.03
+        }
+      },
+      "sources": [
+        "google",
+        "llm-prices.com"
+      ]
+    },
+    "gemini-2.5-flash-image": {
+      "id": "gemini-2.5-flash-image",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.3,
+          "output": 0.039
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-2.5-flash-lite": {
+      "id": "gemini-2.5-flash-lite",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.1,
+          "output": 0.4,
+          "cache_read": 0.01
+        }
+      },
+      "sources": [
+        "google",
+        "llm-prices.com"
+      ]
+    },
+    "gemini-2.5-flash-lite-preview": {
+      "id": "gemini-2.5-flash-lite-preview",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.1,
+          "output": 0.4,
+          "cache_read": 0.01
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-2.5-flash-native-audio": {
+      "id": "gemini-2.5-flash-native-audio",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.5,
+          "output": 2.0
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-2.5-flash-preview-tts": {
+      "id": "gemini-2.5-flash-preview-tts",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.5,
+          "output": 10.0
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-2.5-pro": {
+      "id": "gemini-2.5-pro",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 1.25,
+          "output": 10.0,
+          "cache_read": 0.125
+        }
+      },
+      "sources": [
+        "google",
+        "llm-prices.com"
+      ]
+    },
+    "gemini-2.5-pro-preview-tts": {
+      "id": "gemini-2.5-pro-preview-tts",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 1.0,
+          "output": 20.0
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-3-flash-preview": {
+      "id": "gemini-3-flash-preview",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.5,
+          "output": 3.0,
+          "cache_read": 0.05
+        }
+      },
+      "sources": [
+        "google",
+        "llm-prices.com"
+      ]
+    },
+    "gemini-3-pro-image": {
+      "id": "gemini-3-pro-image",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 12.0
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-3.1-flash-image": {
+      "id": "gemini-3.1-flash-image",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.5,
+          "output": 3.0
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-3.1-flash-lite": {
+      "id": "gemini-3.1-flash-lite",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.25,
+          "output": 1.5,
+          "cache_read": 0.025
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-3.1-flash-lite-image": {
+      "id": "gemini-3.1-flash-lite-image",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.25,
+          "output": 1.5
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-3.1-flash-live-preview": {
+      "id": "gemini-3.1-flash-live-preview",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.75,
+          "output": 4.5
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-3.1-flash-tts-preview": {
+      "id": "gemini-3.1-flash-tts-preview",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 1.0,
+          "output": 20.0
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-3.1-pro-preview": {
+      "id": "gemini-3.1-pro-preview",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 12.0,
+          "cache_read": 0.2
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-3.5-flash": {
+      "id": "gemini-3.5-flash",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 1.5,
+          "output": 9.0,
+          "cache_read": 0.15
+        }
+      },
+      "sources": [
+        "google",
+        "llm-prices.com"
+      ]
+    },
+    "gemini-3.5-flash-lite": {
+      "id": "gemini-3.5-flash-lite",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.3,
+          "output": 2.5,
+          "cache_read": 0.03
+        }
+      },
+      "sources": [
+        "google",
+        "llm-prices.com"
+      ]
+    },
+    "gemini-3.5-live-translate-preview": {
+      "id": "gemini-3.5-live-translate-preview",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 3.5,
+          "output": 21.0
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-3.6-flash": {
+      "id": "gemini-3.6-flash",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 1.5,
+          "output": 7.5,
+          "cache_read": 0.15
+        }
+      },
+      "sources": [
+        "google",
+        "llm-prices.com"
+      ]
+    },
+    "gemini-omni-flash-preview": {
+      "id": "gemini-omni-flash-preview",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 1.5,
+          "output": 9.0
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-robotics-er": {
+      "id": "gemini-robotics-er",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 1.0,
+          "output": 5.0
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-robotics-er-2": {
+      "id": "gemini-robotics-er-2",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 10.0,
+          "cache_read": 0.2
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-robotics-er-2-streaming": {
+      "id": "gemini-robotics-er-2-streaming",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 10.0
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gpt-3.5-turbo": {
+      "id": "gpt-3.5-turbo",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 0.5,
+          "output": 1.5
+        }
+      },
+      "sources": [
+        "openai"
+      ]
+    },
+    "gpt-3.5-turbo-0125": {
+      "id": "gpt-3.5-turbo-0125",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 0.5,
+          "output": 1.5
+        }
+      },
+      "sources": [
+        "openai"
+      ]
+    },
+    "gpt-3.5-turbo-1106": {
+      "id": "gpt-3.5-turbo-1106",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 1.0,
+          "output": 2.0
+        }
+      },
+      "sources": [
+        "openai"
+      ]
+    },
+    "gpt-3.5-turbo-instruct": {
+      "id": "gpt-3.5-turbo-instruct",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 1.5,
+          "output": 2.0
+        }
+      },
+      "sources": [
+        "openai"
+      ]
+    },
+    "gpt-4-0613": {
+      "id": "gpt-4-0613",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 30.0,
+          "output": 60.0
+        }
+      },
+      "sources": [
+        "openai"
+      ]
+    },
+    "gpt-4-turbo-2024-04-09": {
+      "id": "gpt-4-turbo-2024-04-09",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 10.0,
+          "output": 30.0
+        }
+      },
+      "sources": [
+        "openai"
+      ]
+    },
+    "gpt-4.1": {
+      "id": "gpt-4.1",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 8.0,
+          "cache_read": 0.5
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-4.1-mini": {
+      "id": "gpt-4.1-mini",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 0.4,
+          "output": 1.6,
+          "cache_read": 0.1
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-4.1-nano": {
+      "id": "gpt-4.1-nano",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 0.1,
+          "output": 0.4,
+          "cache_read": 0.025
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-4o": {
+      "id": "gpt-4o",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 2.5,
+          "output": 10.0,
+          "cache_read": 1.25
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-4o-2024-05-13": {
+      "id": "gpt-4o-2024-05-13",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 5.0,
+          "output": 15.0
+        }
+      },
+      "sources": [
+        "openai"
+      ]
+    },
+    "gpt-4o-mini": {
+      "id": "gpt-4o-mini",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 0.15,
+          "output": 0.6,
+          "cache_read": 0.075
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5": {
+      "id": "gpt-5",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 1.25,
+          "output": 10.0,
+          "cache_read": 0.125
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5-mini": {
+      "id": "gpt-5-mini",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 0.25,
+          "output": 2.0,
+          "cache_read": 0.025
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5-nano": {
+      "id": "gpt-5-nano",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 0.05,
+          "output": 0.4,
+          "cache_read": 0.005
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5-pro": {
+      "id": "gpt-5-pro",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 15.0,
+          "output": 120.0
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5.1": {
+      "id": "gpt-5.1",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 1.25,
+          "output": 10.0,
+          "cache_read": 0.125
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5.2": {
+      "id": "gpt-5.2",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 1.75,
+          "output": 14.0,
+          "cache_read": 0.175
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5.2-pro": {
+      "id": "gpt-5.2-pro",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 21.0,
+          "output": 168.0
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5.4": {
+      "id": "gpt-5.4",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 2.5,
+          "output": 15.0,
+          "cache_read": 0.25
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5.4-mini": {
+      "id": "gpt-5.4-mini",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 0.75,
+          "output": 4.5,
+          "cache_read": 0.075
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5.4-nano": {
+      "id": "gpt-5.4-nano",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 0.2,
+          "output": 1.25,
+          "cache_read": 0.02
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5.4-pro": {
+      "id": "gpt-5.4-pro",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 30.0,
+          "output": 180.0
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5.5": {
+      "id": "gpt-5.5",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 5.0,
+          "output": 30.0,
+          "cache_read": 0.5
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5.5-pro": {
+      "id": "gpt-5.5-pro",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 30.0,
+          "output": 180.0
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5.6-luna": {
+      "id": "gpt-5.6-luna",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 0.2,
+          "output": 1.2,
+          "cache_read": 0.02,
+          "cache_write": 0.25
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5.6-sol": {
+      "id": "gpt-5.6-sol",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 5.0,
+          "output": 30.0,
+          "cache_read": 0.5,
+          "cache_write": 6.25
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "gpt-5.6-terra": {
+      "id": "gpt-5.6-terra",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 12.0,
+          "cache_read": 0.2,
+          "cache_write": 2.5
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "o1": {
+      "id": "o1",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 15.0,
+          "output": 60.0,
+          "cache_read": 7.5
+        }
+      },
+      "sources": [
+        "openai"
+      ]
+    },
+    "o1-pro": {
+      "id": "o1-pro",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 150.0,
+          "output": 600.0
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "o3": {
+      "id": "o3",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 8.0,
+          "cache_read": 0.5
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "o3-mini": {
+      "id": "o3-mini",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 1.1,
+          "output": 4.4,
+          "cache_read": 0.55
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "o3-pro": {
+      "id": "o3-pro",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 20.0,
+          "output": 80.0
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    },
+    "o4-mini": {
+      "id": "o4-mini",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 1.1,
+          "output": 4.4,
+          "cache_read": 0.275
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ]
+    }
+  }
+}

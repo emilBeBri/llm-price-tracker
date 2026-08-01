@@ -1,14 +1,25 @@
 [project]
 name = "llm-price-tracker"
 version = "0.0.1"
-description = "xdesc"
+description = "Track published LLM prices across vendor pages and cross-check them"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic-settings>=2.5.2",
     "pydantic>=2.9.1",
     "python-dotenv>=1.0.1",
+    "rich>=13.0.0",
     "typer>=0.16.0",
+]
+
+# Scraping deps are OPTIONAL on purpose. A consumer that only wants prices
+# imports llm_price_tracker (pure, offline) and should not inherit an HTTP
+# client and an HTML parser to do it. Only the CLI's fetch commands need these:
+#   uv sync --extra fetch
+[project.optional-dependencies]
+fetch = [
+    "httpx>=0.27.0",
+    "selectolax>=0.3.21",
 ]
 
 
