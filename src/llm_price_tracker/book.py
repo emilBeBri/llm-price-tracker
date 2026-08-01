@@ -69,8 +69,31 @@ def save_book(book: PriceBook, path: Path | None = None) -> None:
     )
 
 
+def _fold(model_id: str) -> str:
+    """Fold the separators vendors themselves can't agree on.
+
+    The same model appears as `claude-opus-4.6` on Anthropic's pricing page
+    (display-name slug) and `claude-opus-4-6` on the wire; Gemini ids have the
+    same dot/dash split between docs anchors and API ids. Case is folded for
+    hosts that stylize ids (`Llama-3.3-70B-Instruct`).
+    """
+    return model_id.replace('.', '-').lower()
+
+
 def get_entry(model_id: str, book: PriceBook | None = None) -> ModelEntry | None:
-    return (book or load_book()).get(model_id)
+    """Exact lookup first; on a miss, a unique dot/dash-insensitive match.
+
+    Ambiguity returns None rather than a guess — two book ids folding to the
+    same key means the caller's id genuinely underdetermines the model, and a
+    wrong price is worse than a missing one.
+    """
+    b = book or load_book()
+    entry = b.get(model_id)
+    if entry is not None:
+        return entry
+    folded = _fold(model_id)
+    matches = [k for k in b.models if _fold(k) == folded]
+    return b.models[matches[0]] if len(matches) == 1 else None
 
 
 def get_price(

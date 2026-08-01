@@ -109,3 +109,41 @@ def test_save_book_refuses_a_unit_explosion(tmp_path):
 def test_negative_price_is_rejected_by_the_model():
     with pytest.raises(ValueError):
         Price(input=-1.0, output=2.0)
+
+
+def test_lookup_folds_dots_and_dashes_both_ways(tmp_path):
+    """Anthropic's page slugs say claude-opus-4.6; the wire says claude-opus-4-6."""
+    b = PriceBook(
+        updated_at='2026-08-01',
+        models={
+            'claude-opus-4.6': ModelEntry(
+                id='claude-opus-4.6',
+                vendor='anthropic',
+                tiers={STANDARD: Price(input=5.0, output=25.0)},
+            )
+        },
+    )
+    assert get_price('claude-opus-4-6', book=b).input == 5.0
+    assert get_price('Claude-Opus-4.6', book=b).input == 5.0
+    assert get_price('claude-opus-4-7', book=b) is None
+
+
+def test_exact_id_beats_a_normalized_match(tmp_path):
+    entries = {
+        mid: ModelEntry(id=mid, vendor='x', tiers={STANDARD: Price(input=p, output=p)})
+        for mid, p in (('m-1.0', 1.0), ('m-1-0', 2.0))
+    }
+    b = PriceBook(updated_at='2026-08-01', models=entries)
+    assert get_price('m-1-0', book=b).input == 2.0, 'exact must win'
+
+
+def test_ambiguous_normalized_match_returns_none_never_a_guess(tmp_path):
+    entries = {
+        mid: ModelEntry(
+            id=mid, vendor='x', tiers={STANDARD: Price(input=1.0, output=1.0)}
+        )
+        for mid in ('m-1.0', 'm-1-0')
+    }
+    b = PriceBook(updated_at='2026-08-01', models=entries)
+    # 'M.1.0' is an exact miss and folds onto BOTH ids.
+    assert get_price('M-1.0', book=b) is None
