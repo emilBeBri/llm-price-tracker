@@ -9,6 +9,7 @@ that surfaces anything non-zero (see README).
 
 from __future__ import annotations
 
+import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
@@ -17,7 +18,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from .book import DATA_PATH, load_book, save_book
+from .book import DATA_PATH, get_entry, load_book, save_book
 from .compare import (
     Agreement,
     Drift,
@@ -298,6 +299,194 @@ def show(
         )
     console.print(table)
     console.print(f'{len(rows)} of {len(book.models)} model(s)')
+
+
+def _percentage(value: float, reference: float | None) -> float | None:
+    if reference is None or reference == 0:
+        return None
+    return value / reference * 100
+
+
+def _percent(value: float | None) -> str:
+    if value is None:
+        return '—'
+    return f'{value:,.3f}'.rstrip('0').rstrip('.') + '%'
+
+
+def _relative_cell(value: float | None, reference: float | None) -> str:
+    if value is None:
+        return '—'
+    return f'{_money(value)} · {_percent(_percentage(value, reference))}'
+
+
+def _pick_model(
+    book: PriceBook, prompt: str, *, exclude: str | None = None
+) -> str | None:
+    rows = []
+    for model_id, entry in sorted(book.models.items()):
+        price = entry.standard
+        if price is None or model_id == exclude:
+            continue
+        # The first field is a hidden stable identity. Repeating the model id in
+        # the display fields keeps it searchable while parsing remains exact.
+        rows.append(
+            '\t'.join(
+                (
+                    model_id,
+                    model_id,
+                    entry.vendor,
+                    _money(price.input),
+                    _money(price.output),
+                    _money(price.cache_read),
+                    _money(price.cache_write),
+                )
+            )
+        )
+
+    try:
+        result = subprocess.run(
+            [
+                'fzf',
+                '--reverse',
+                '--cycle',
+                '--no-multi',
+                '--delimiter=\\t',
+                '--with-nth=2..',
+                '--prompt',
+                f'{prompt}: ',
+                '--header',
+                'model\tvendor\tinput\toutput\tcache read\tcache write',
+            ],
+            input='\n'.join(rows) + '\n',
+            text=True,
+            stdout=subprocess.PIPE,
+            check=False,
+        )
+    except FileNotFoundError as e:
+        console.print('[red]fzf is required for interactive model selection.[/]')
+        raise typer.Exit(2) from e
+
+    if result.returncode in (1, 130):
+        return None
+    if result.returncode != 0:
+        console.print(f'[red]fzf failed with exit status {result.returncode}.[/]')
+        raise typer.Exit(2)
+
+    # Inherited fzf options may add metadata lines (`--expect`,
+    # `--print-query`). The accepted row is always the final output line.
+    output_lines = result.stdout.rstrip('\n').splitlines()
+    return output_lines[-1].split('\t', 1)[0] if output_lines else None
+
+
+def _resolve_model_id(model_id: str, book: PriceBook) -> str:
+    entry = get_entry(model_id, book)
+    if entry is None:
+        console.print(f'[red]Unknown or ambiguous model:[/] {model_id}')
+        raise typer.Exit(EXIT_DRIFT)
+    if entry.standard is None:
+        console.print(f'[red]Model has no standard price tier:[/] {entry.id}')
+        raise typer.Exit(EXIT_DRIFT)
+    return entry.id
+
+
+@app.command()
+def relative(
+    reference: Annotated[
+        str,
+        typer.Argument(help="Reference model id, or 'fzf' to select interactively."),
+    ],
+    comparison: Annotated[
+        str | None,
+        typer.Argument(
+            help="Optional model to compare, or 'fzf' to select interactively."
+        ),
+    ] = None,
+    book_path: Annotated[
+        Path | None, typer.Option(help='Override the book path.')
+    ] = None,
+) -> None:
+    """Compare standard token rates as percentages of a reference model."""
+    book = load_book(book_path)
+    interactive_reference = reference.casefold() == 'fzf'
+
+    if interactive_reference:
+        reference_id = _pick_model(book, 'Reference model')
+        if reference_id is None:
+            raise typer.Exit(130)
+    else:
+        reference_id = _resolve_model_id(reference, book)
+
+    interactive_comparison = (comparison is None and interactive_reference) or (
+        comparison is not None and comparison.casefold() == 'fzf'
+    )
+    if interactive_comparison:
+        comparison_id = _pick_model(
+            book,
+            'Comparison model',
+            exclude=reference_id,
+        )
+        if comparison_id is None:
+            raise typer.Exit(130)
+    elif comparison is not None:
+        comparison_id = _resolve_model_id(comparison, book)
+    else:
+        comparison_id = None
+
+    reference_entry = book.models[reference_id]
+    reference_price = reference_entry.standard
+    assert reference_price is not None  # guaranteed by picker/resolution filters
+
+    if comparison_id is not None:
+        model_ids = [reference_id]
+        if comparison_id != reference_id:
+            model_ids.append(comparison_id)
+    else:
+        model_ids = [
+            model_id
+            for model_id, entry in book.models.items()
+            if entry.standard is not None
+        ]
+        model_ids.sort(
+            key=lambda model_id: (
+                book.models[model_id].standard.input / reference_price.input
+                if reference_price.input
+                else float('inf'),
+                model_id,
+            )
+        )
+
+    table = Table(
+        title=f'Standard prices relative to {reference_id}',
+        title_justify='left',
+        pad_edge=False,
+        caption='USD per 1M tokens · each percentage is relative to the same column',
+        caption_justify='left',
+        caption_style='dim',
+    )
+    table.add_column('model', style='cyan')
+    table.add_column('vendor', style='dim')
+    table.add_column('input', justify='right')
+    table.add_column('output', justify='right')
+    table.add_column('cache read', justify='right')
+    table.add_column('cache write', justify='right')
+
+    for model_id in model_ids:
+        entry = book.models[model_id]
+        price = entry.standard
+        assert price is not None  # model_ids contains standard-tier entries only
+        style = 'bold green' if model_id == reference_id else None
+        table.add_row(
+            model_id,
+            entry.vendor,
+            _relative_cell(price.input, reference_price.input),
+            _relative_cell(price.output, reference_price.output),
+            _relative_cell(price.cache_read, reference_price.cache_read),
+            _relative_cell(price.cache_write, reference_price.cache_write),
+            style=style,
+        )
+
+    console.print(table)
+    console.print(f'{len(model_ids)} model(s) · reference = 100%')
 
 
 @app.command()
