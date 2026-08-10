@@ -90,6 +90,8 @@ single-source, never guessed at.
 | `openai` | developers.openai.com pricing | markdown |
 | `google` | ai.google.dev pricing | HTML |
 | `deepseek` | api-docs.deepseek.com pricing | HTML |
+| `moonshot` | Kimi's international API pricing announcement | HTML |
+| `zai` | docs.z.ai API pricing table | HTML |
 | `llm-prices.com` | Simon Willison's aggregated feed | JSON |
 | `openrouter` | openrouter.ai `/api/v1/models` | JSON |
 
@@ -160,7 +162,7 @@ Three choices in there are deliberate:
 - **`ExecCondition=ping` makes offline a SKIP, not a failure.** A laptop shut
   for a week must not produce a queue of false alarms — those train you to
   ignore the real one.
-- **Daily, not weekly.** Five HTTPS GETs cost nothing and a clean run is
+- **Daily, not weekly.** Eight HTTPS GETs cost nothing and a clean run is
   silent; weekly is how you notice a 5x cut six days late.
 
 ## Adding a vendor

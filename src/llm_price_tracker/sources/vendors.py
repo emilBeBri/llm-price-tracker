@@ -1,4 +1,4 @@
-"""The four first-party vendor pages.
+"""The first-party vendor pricing pages.
 
 Ported from the proven parsers in bb-scripts/llm-prices.py, with the two bugs
 that had silently killed the OpenAI one fixed here from the start.
@@ -236,4 +236,87 @@ class DeepSeekSource(Source):
             if inp is None or o is None:
                 continue
             out[mid] = Price(input=inp, output=o, cache_read=at(hit, i))
+        return out
+
+
+class MoonshotSource(Source):
+    """Kimi's first-party USD pricing announcement.
+
+    Moonshot's Chinese platform lists CNY rates, while the international Kimi
+    forum publishes the USD API rate used by OpenRouter-facing consumers. The
+    K3 announcement has one label/value table rather than a model matrix.
+    """
+
+    name = 'moonshot'
+    url = 'https://forum.kimi.com/t/kimi-k3-is-live/744'
+    expect = ('kimi-k3',)
+
+    def parse(self, html: str) -> dict[str, Price]:
+        inp = outp = cached = None
+        for table in HTMLParser(html).css('table'):
+            for tr in table.css('tr'):
+                cells = [n.text(strip=True) for n in tr.css('th, td')]
+                if len(cells) < 2:
+                    continue
+                label = cells[0].lower()
+                if label == 'input price':
+                    inp = dollars(cells[-1])
+                elif label == 'output price':
+                    outp = dollars(cells[-1])
+                elif label == 'cache hit price':
+                    cached = dollars(cells[-1])
+
+        if inp is None or outp is None:
+            return {}
+        return {'kimi-k3': Price(input=inp, output=outp, cache_read=cached)}
+
+
+class ZaiSource(Source):
+    """Z.ai API introduction: a normal model-by-row USD pricing table."""
+
+    name = 'zai'
+    url = 'https://docs.z.ai/api-reference/introduction'
+    expect = ('glm-5.2',)
+
+    def parse(self, html: str) -> dict[str, Price]:
+        out: dict[str, Price] = {}
+        for table in HTMLParser(html).css('table'):
+            rows = [
+                [n.text(strip=True) for n in tr.css('th, td')] for tr in table.css('tr')
+            ]
+            if not rows:
+                continue
+            header = [cell.lower() for cell in rows[0]]
+
+            def column(columns: list[str], *needles: str) -> int | None:
+                for i, cell in enumerate(columns):
+                    if all(needle in cell for needle in needles):
+                        return i
+                return None
+
+            c_model = column(header, 'model')
+            c_in = column(header, 'input', 'cache miss')
+            c_cached = column(header, 'input', 'cache hit')
+            c_out = column(header, 'output')
+            if c_model is None or c_in is None or c_out is None:
+                continue
+
+            for row in rows[1:]:
+                if len(row) <= max(c_model, c_in, c_out):
+                    continue
+                model_id = row[c_model].strip().lower()
+                if not model_id.startswith('glm-'):
+                    continue
+                inp, outp = dollars(row[c_in]), dollars(row[c_out])
+                if inp is None or outp is None:
+                    continue
+                out[model_id] = Price(
+                    input=inp,
+                    output=outp,
+                    cache_read=(
+                        dollars(row[c_cached])
+                        if c_cached is not None and c_cached < len(row)
+                        else None
+                    ),
+                )
         return out

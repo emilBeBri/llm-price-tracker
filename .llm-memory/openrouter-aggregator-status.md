@@ -39,5 +39,20 @@ aggregator-only ones collapse to a one-line dim count. Rationale: a table that
 shows the same benign rows every day trains you to ignore the day a real one
 appears — the same reasoning as the check/refresh filter symmetry.
 
+## Moonshot and Z.ai confirmed the boundary
+
+Adding first-party Moonshot and Z.ai sources on 2026-08-10 produced exactly the
+case this design exists for: Kimi K3's international vendor rate is
+$3/$15/$0.30 cached while OpenRouter advertises a lower routing rate, and Z.ai
+publishes GLM-5.2 at $1.40/$4.40/$0.26 cached while OpenRouter can route it much
+more cheaply. These are legitimate reseller prices, not corrections to the
+vendor facts. The vendor source therefore wins the committed row and OpenRouter
+remains disagreement evidence.
+
+Moonshot has a second trap: its Chinese platform publishes CNY prices, but the
+book's unit is USD. `MoonshotSource` reads the international Kimi announcement's
+USD table and never converts the CNY page through a live exchange rate; doing so
+would turn a recorded vendor fact into a time-dependent derived estimate.
+
 See [[deferred-structural-prices]] for what the same research report proposed
 that was deliberately NOT adopted.

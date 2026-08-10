@@ -13,7 +13,14 @@ from pathlib import Path
 
 from .aggregator import LlmPricesSource, OpenRouterSource
 from .base import Source, SourceResult, dollars
-from .vendors import AnthropicSource, DeepSeekSource, GoogleSource, OpenAISource
+from .vendors import (
+    AnthropicSource,
+    DeepSeekSource,
+    GoogleSource,
+    MoonshotSource,
+    OpenAISource,
+    ZaiSource,
+)
 
 __all__ = [
     'SOURCES',
@@ -21,10 +28,12 @@ __all__ = [
     'DeepSeekSource',
     'GoogleSource',
     'LlmPricesSource',
+    'MoonshotSource',
     'OpenAISource',
     'OpenRouterSource',
     'Source',
     'SourceResult',
+    'ZaiSource',
     'dollars',
     'fetch_all',
     'save_snapshots',
@@ -37,6 +46,8 @@ SOURCES: tuple[Source, ...] = (
     OpenAISource(),
     GoogleSource(),
     DeepSeekSource(),
+    MoonshotSource(),
+    ZaiSource(),
     LlmPricesSource(),
     OpenRouterSource(),
 )

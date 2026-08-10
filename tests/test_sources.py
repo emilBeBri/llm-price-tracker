@@ -4,16 +4,19 @@ No network. Each fixture reproduces the exact structural trap that broke a
 parser in practice, so the test fails if someone "simplifies" the fix away.
 """
 
+from llm_price_tracker.models import Price
 from llm_price_tracker.sources import (
-    GoogleSource,
+    SOURCES,
     AnthropicSource,
     DeepSeekSource,
+    GoogleSource,
     LlmPricesSource,
+    MoonshotSource,
     OpenAISource,
     OpenRouterSource,
+    ZaiSource,
 )
 from llm_price_tracker.sources.base import Source, SourceResult, dollars
-from llm_price_tracker.models import Price
 
 
 def test_dollars_takes_the_first_amount():
@@ -114,6 +117,65 @@ def test_deepseek_transposed_table_and_steep_cache_discount():
     # ~0.008x of input — nothing like a generic 0.1x fallback.
     assert pro.cache_read == 0.003625
     assert prices['deepseek-v4-flash'].cache_read == 0.0028
+
+
+# --------------------------------------------------------------------------- #
+# Moonshot: the international Kimi forum publishes one USD label/value table.
+# The Chinese platform's CNY table must not be mixed into this USD-only book.
+# --------------------------------------------------------------------------- #
+MOONSHOT_HTML = """
+<table>
+<thead><tr><th>Price Type</th><th>Price (per 1M tokens)</th></tr></thead>
+<tbody>
+<tr><td>Input Price</td><td>$3</td></tr>
+<tr><td>Cache Hit Price</td><td>$0.3</td></tr>
+<tr><td>Output Price</td><td>$15</td></tr>
+</tbody>
+</table>
+<p>For a limited time, Kimi K3 API costs are 50% off.</p>
+"""
+
+
+def test_moonshot_reads_kimi_k3_usd_rates_not_promo_prose():
+    price = MoonshotSource().parse(MOONSHOT_HTML)['kimi-k3']
+    assert (price.input, price.output, price.cache_read) == (3.0, 15.0, 0.3)
+
+
+def test_moonshot_requires_the_price_table_not_merely_dollar_amounts():
+    assert MoonshotSource().parse('<p>Kimi K3 is 50% off from $99.</p>') == {}
+
+
+# --------------------------------------------------------------------------- #
+# Z.ai: current API prices are rows; the cached-input column sits between the
+# ordinary input and output columns.
+# --------------------------------------------------------------------------- #
+ZAI_HTML = """
+<table>
+<thead><tr><th>Model</th><th>Input (Cache Miss)</th><th>Input (Cache Hit)</th><th>Output</th></tr></thead>
+<tbody>
+<tr><td>GLM-5.2</td><td>$1.4 / 1M tokens</td><td>$0.26 / 1M tokens</td><td>$4.4 / 1M tokens</td></tr>
+<tr><td>GLM-5.2-Flash</td><td>$0.2 / 1M tokens</td><td>$0.03 / 1M tokens</td><td>$1.6 / 1M tokens</td></tr>
+</tbody>
+</table>
+"""
+
+
+def test_zai_maps_glm_5_2_input_cache_and_output_columns():
+    prices = ZaiSource().parse(ZAI_HTML)
+    standard = prices['glm-5.2']
+    assert (standard.input, standard.output, standard.cache_read) == (1.4, 4.4, 0.26)
+
+
+def test_zai_parses_each_glm_model_as_its_vendor_wire_id():
+    prices = ZaiSource().parse(ZAI_HTML)
+    assert set(prices) == {'glm-5.2', 'glm-5.2-flash'}
+    assert prices['glm-5.2-flash'].output == 1.6
+
+
+def test_first_party_sources_are_registered_before_aggregators():
+    names = [source.name for source in SOURCES]
+    assert names.index('moonshot') < names.index('llm-prices.com')
+    assert names.index('zai') < names.index('llm-prices.com')
 
 
 # --------------------------------------------------------------------------- #
