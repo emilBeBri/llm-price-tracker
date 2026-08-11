@@ -1,0 +1,66 @@
+{
+  "built_at": "2026-08-10T07:38:48.193582+00:00",
+  "dangling": [],
+  "n_dangling": 0,
+  "n_edges": 4,
+  "n_nodes": 3,
+  "n_orphans": 0,
+  "nodes": {
+    "deferred-structural-prices": {
+      "degree_in": 2,
+      "degree_out": 1,
+      "in": [
+        "index",
+        "openrouter-aggregator-status"
+      ],
+      "out": [
+        "openrouter-aggregator-status"
+      ],
+      "pagerank": 0.475,
+      "tags": [
+        "#architecture-decision-record",
+        "#deferral",
+        "#schema",
+        "#pricing"
+      ],
+      "title": "Deferred: structural price history, off-peak windows, context tiers"
+    },
+    "index": {
+      "degree_in": 0,
+      "degree_out": 2,
+      "in": [],
+      "out": [
+        "deferred-structural-prices",
+        "openrouter-aggregator-status"
+      ],
+      "pagerank": 0.05000000000000001,
+      "tags": [
+        "#moc",
+        "#index"
+      ],
+      "title": "index"
+    },
+    "openrouter-aggregator-status": {
+      "degree_in": 2,
+      "degree_out": 1,
+      "in": [
+        "deferred-structural-prices",
+        "index"
+      ],
+      "out": [
+        "deferred-structural-prices"
+      ],
+      "pagerank": 0.475,
+      "tags": [
+        "#architecture-decision-record",
+        "#sources",
+        "#openrouter",
+        "#corroboration"
+      ],
+      "title": "OpenRouter widens conflict detection, never write authority"
+    }
+  },
+  "source_hash": "d9a7db2ccca850c77ee81d65dbd910195562d56846a553949284db7f2598d261",
+  "tool_version": 1,
+  "version": 1
+}
