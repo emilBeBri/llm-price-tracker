@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-01",
+  "updated_at": "2026-08-18",
   "models": {
     "babbage-002": {
       "id": "babbage-002",
@@ -262,14 +262,30 @@
       "vendor": "deepseek",
       "tiers": {
         "standard": {
-          "input": 0.14,
-          "output": 0.28,
-          "cache_read": 0.0028
+          "input": 0.22,
+          "output": 0.66,
+          "cache_read": 0.007,
+          "peak": {
+            "input": 0.44,
+            "output": 1.32,
+            "cache_read": 0.014
+          },
+          "peak_windows": [
+            {
+              "start": "01:00",
+              "end": "04:00"
+            },
+            {
+              "start": "06:00",
+              "end": "10:00"
+            }
+          ]
         }
       },
       "sources": [
         "deepseek",
-        "llm-prices.com"
+        "llm-prices.com",
+        "openrouter"
       ]
     },
     "deepseek-v4-pro": {
@@ -277,14 +293,30 @@
       "vendor": "deepseek",
       "tiers": {
         "standard": {
-          "input": 0.435,
-          "output": 0.87,
-          "cache_read": 0.003625
+          "input": 0.66,
+          "output": 1.98,
+          "cache_read": 0.022,
+          "peak": {
+            "input": 1.32,
+            "output": 3.96,
+            "cache_read": 0.044
+          },
+          "peak_windows": [
+            {
+              "start": "01:00",
+              "end": "04:00"
+            },
+            {
+              "start": "06:00",
+              "end": "10:00"
+            }
+          ]
         }
       },
       "sources": [
         "deepseek",
-        "llm-prices.com"
+        "llm-prices.com",
+        "openrouter"
       ]
     },
     "gemini-2.0-flash": {
@@ -596,14 +628,31 @@
       "vendor": "google",
       "tiers": {
         "standard": {
-          "input": 1.5,
-          "output": 7.5,
-          "cache_read": 0.15
+          "input": 0.75,
+          "output": 3.75,
+          "cache_read": 0.075
         }
       },
       "sources": [
         "google",
-        "llm-prices.com"
+        "llm-prices.com",
+        "openrouter"
+      ]
+    },
+    "gemini-3.7-flash": {
+      "id": "gemini-3.7-flash",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.75,
+          "output": 3.75,
+          "cache_read": 0.075
+        }
+      },
+      "sources": [
+        "google",
+        "llm-prices.com",
+        "openrouter"
       ]
     },
     "gemini-omni-flash-preview": {
@@ -657,6 +706,181 @@
       },
       "sources": [
         "google"
+      ]
+    },
+    "glm-4-32b-0414-128k": {
+      "id": "glm-4-32b-0414-128k",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 0.1,
+          "output": 0.1
+        }
+      },
+      "sources": [
+        "zai"
+      ]
+    },
+    "glm-4.5": {
+      "id": "glm-4.5",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 0.6,
+          "output": 2.2,
+          "cache_read": 0.11
+        }
+      },
+      "sources": [
+        "openrouter",
+        "zai"
+      ]
+    },
+    "glm-4.5-air": {
+      "id": "glm-4.5-air",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 0.2,
+          "output": 1.1,
+          "cache_read": 0.03
+        }
+      },
+      "sources": [
+        "openrouter",
+        "zai"
+      ]
+    },
+    "glm-4.5-airx": {
+      "id": "glm-4.5-airx",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 1.1,
+          "output": 4.5,
+          "cache_read": 0.22
+        }
+      },
+      "sources": [
+        "zai"
+      ]
+    },
+    "glm-4.5-x": {
+      "id": "glm-4.5-x",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 2.2,
+          "output": 8.9,
+          "cache_read": 0.45
+        }
+      },
+      "sources": [
+        "zai"
+      ]
+    },
+    "glm-4.6": {
+      "id": "glm-4.6",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 0.6,
+          "output": 2.2,
+          "cache_read": 0.11
+        }
+      },
+      "sources": [
+        "openrouter",
+        "zai"
+      ]
+    },
+    "glm-4.7": {
+      "id": "glm-4.7",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 0.6,
+          "output": 2.2,
+          "cache_read": 0.11
+        }
+      },
+      "sources": [
+        "openrouter",
+        "zai"
+      ]
+    },
+    "glm-4.7-flashx": {
+      "id": "glm-4.7-flashx",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 0.07,
+          "output": 0.4,
+          "cache_read": 0.01
+        }
+      },
+      "sources": [
+        "zai"
+      ]
+    },
+    "glm-5": {
+      "id": "glm-5",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 1.0,
+          "output": 3.2,
+          "cache_read": 0.2
+        }
+      },
+      "sources": [
+        "openrouter",
+        "zai"
+      ]
+    },
+    "glm-5-turbo": {
+      "id": "glm-5-turbo",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 1.2,
+          "output": 4.0,
+          "cache_read": 0.24
+        }
+      },
+      "sources": [
+        "openrouter",
+        "zai"
+      ]
+    },
+    "glm-5.1": {
+      "id": "glm-5.1",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 1.4,
+          "output": 4.4,
+          "cache_read": 0.26
+        }
+      },
+      "sources": [
+        "openrouter",
+        "zai"
+      ]
+    },
+    "glm-5.2": {
+      "id": "glm-5.2",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 1.4,
+          "output": 4.4,
+          "cache_read": 0.26
+        }
+      },
+      "sources": [
+        "openrouter",
+        "zai"
       ]
     },
     "gpt-3.5-turbo": {
@@ -1062,6 +1286,21 @@
       "sources": [
         "llm-prices.com",
         "openai"
+      ]
+    },
+    "kimi-k3": {
+      "id": "kimi-k3",
+      "vendor": "moonshot",
+      "tiers": {
+        "standard": {
+          "input": 3.0,
+          "output": 15.0,
+          "cache_read": 0.3
+        }
+      },
+      "sources": [
+        "moonshot",
+        "openrouter"
       ]
     },
     "o1": {
