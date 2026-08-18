@@ -27,7 +27,7 @@ from .compare import (
     is_corroborated,
     reconcile,
 )
-from .models import STANDARD, PriceBook
+from .models import STANDARD, Price, PriceBook
 
 app = typer.Typer(
     add_completion=False,
@@ -45,6 +45,18 @@ def _money(v: float | None) -> str:
         return '—'
     s = f'{v:.6f}'.rstrip('0').rstrip('.')
     return '$' + (s if '.' in s else s + '.00')
+
+
+def _price_cell(p: Price | None) -> str:
+    """'in/out', with a ·peak marker when a time-of-day variant exists.
+
+    The scalar columns show the off-peak rate; without the marker a viewer
+    would read it as THE price and never learn the 2x peak window exists.
+    """
+    if p is None:
+        return '—'
+    s = f'{_money(p.input)}/{_money(p.output)}'
+    return f'{s}·peak' if p.peak is not None else s
 
 
 def _fetch_or_exit(timeout: float):
@@ -130,7 +142,10 @@ def check(
                 # says $0.0028 and the aggregator says $0.028, 10x apart, while
                 # input and output agree exactly.
                 row.append(
-                    f'{_money(p.input)}/{_money(p.output)}/{_money(p.cache_read)}'
+                    (
+                        f'{_money(p.input)}/{_money(p.output)}/{_money(p.cache_read)}'
+                        + ('·peak' if p.peak is not None else '')
+                    )
                     if p
                     else '—'
                 )
@@ -172,8 +187,8 @@ def check(
         table.add_column('live', justify='right', style='green')
         table.add_column('corroborated by', style='dim')
         for d in changed:
-            old = f'{_money(d.old.input)}/{_money(d.old.output)}' if d.old else '—'
-            new = f'{_money(d.new.input)}/{_money(d.new.output)}' if d.new else '—'
+            old = _price_cell(d.old)
+            new = _price_cell(d.new)
             table.add_row(
                 d.model_id,
                 d.drift.value,
@@ -235,8 +250,8 @@ def refresh(
         changed, deltas = kept, [d for d in deltas if is_corroborated(d)]
 
     for d in changed:
-        old = f'{_money(d.old.input)}/{_money(d.old.output)}' if d.old else '—'
-        new = f'{_money(d.new.input)}/{_money(d.new.output)}' if d.new else '—'
+        old = _price_cell(d.old)
+        new = _price_cell(d.new)
         console.print(f'  {d.drift.value:8} {d.model_id:34} {old:>18} -> {new}')
 
     if not changed:

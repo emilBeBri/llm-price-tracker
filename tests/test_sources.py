@@ -99,8 +99,28 @@ def test_anthropic_maps_the_cache_columns():
 
 # --------------------------------------------------------------------------- #
 # DeepSeek: a transposed table, models as columns, prices as trailing cells.
+# Since the peak-pricing activation each metric splits into OFF-PEAK/PEAK
+# sub-rows; the FEATURES 'Json Output' row must not read as the output row,
+# and the peak-hour windows come from the footnote, never hardcoded.
 # --------------------------------------------------------------------------- #
 DEEPSEEK_HTML = """
+<table>
+<tr><td>MODEL</td><td>deepseek-v4-flash</td><td>deepseek-v4-pro</td></tr>
+<tr><td>FEATURES</td><td>Json Output</td><td>✓</td><td>✓</td></tr>
+<tr><td>PRICING(1)</td><td>1M INPUT TOKENS (CACHE HIT)</td><td>OFF-PEAK</td><td>$0.007</td><td>$0.022</td></tr>
+<tr><td>PEAK</td><td>$0.014</td><td>$0.044</td></tr>
+<tr><td>1M INPUT TOKENS (CACHE MISS)</td><td>OFF-PEAK</td><td>$0.22</td><td>$0.66</td></tr>
+<tr><td>PEAK</td><td>$0.44</td><td>$1.32</td></tr>
+<tr><td>1M OUTPUT TOKENS</td><td>OFF-PEAK</td><td>$0.66</td><td>$1.98</td></tr>
+<tr><td>PEAK</td><td>$1.32</td><td>$3.96</td></tr>
+</table>
+<p>(1) Off-peak rates are half of the peak rates. Peak hours are 01:00 - 04:00 and 06:00 - 10:00 UTC (all other hours are off-peak).</p>
+"""
+
+# The pre-activation table: one row per metric, no period marker. Must keep
+# parsing — a source that dies when the vendor REVERTS a policy is as bad as
+# one that dies when the policy changes.
+DEEPSEEK_HTML_NO_PEAK = """
 <table>
 <tr><td>MODEL</td><td>deepseek-v4-flash</td><td>deepseek-v4-pro</td></tr>
 <tr><td>PRICING</td><td>1M INPUT TOKENS (CACHE HIT)</td><td>$0.0028</td><td>$0.003625</td></tr>
@@ -113,10 +133,41 @@ DEEPSEEK_HTML = """
 def test_deepseek_transposed_table_and_steep_cache_discount():
     prices = DeepSeekSource().parse(DEEPSEEK_HTML)
     pro = prices['deepseek-v4-pro']
+    assert (pro.input, pro.output) == (0.66, 1.98)
+    assert pro.cache_read == 0.022
+    assert prices['deepseek-v4-flash'].cache_read == 0.007
+
+
+def test_deepseek_off_peak_is_the_scalar_and_peak_is_the_variant():
+    flash = DeepSeekSource().parse(DEEPSEEK_HTML)['deepseek-v4-flash']
+    assert (flash.input, flash.output) == (0.22, 0.66)  # off-peak headline rate
+    assert (flash.peak.input, flash.peak.output, flash.peak.cache_read) == (
+        0.44,
+        1.32,
+        0.014,
+    )
+
+
+def test_deepseek_peak_windows_come_from_the_footnote():
+    flash = DeepSeekSource().parse(DEEPSEEK_HTML)['deepseek-v4-flash']
+    assert [(w.start, w.end) for w in flash.peak_windows] == [
+        ('01:00', '04:00'),
+        ('06:00', '10:00'),
+    ]
+
+
+def test_deepseek_features_json_output_row_is_not_the_output_price():
+    """'Json Output' in FEATURES must not overwrite the output-price row."""
+    flash = DeepSeekSource().parse(DEEPSEEK_HTML)['deepseek-v4-flash']
+    assert flash.output == 0.66
+
+
+def test_deepseek_table_without_period_rows_has_no_peak_variant():
+    prices = DeepSeekSource().parse(DEEPSEEK_HTML_NO_PEAK)
+    pro = prices['deepseek-v4-pro']
     assert (pro.input, pro.output) == (0.435, 0.87)
-    # ~0.008x of input — nothing like a generic 0.1x fallback.
     assert pro.cache_read == 0.003625
-    assert prices['deepseek-v4-flash'].cache_read == 0.0028
+    assert pro.peak is None and pro.peak_windows is None
 
 
 # --------------------------------------------------------------------------- #

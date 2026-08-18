@@ -12,10 +12,15 @@ deferred, each with an explicit trigger for when to build it:
   `prices.json` is the history, and the daily check catches a flip within 24h
   because the vendor page changes. Trigger: the day a consumer needs to price
   a *past* call at the rate in force *then*.
-- **Time-of-day windows** (DeepSeek's announced 2x peak pricing, encoded in
-  genai-prices as the off-peak default + a time-constrained standard price).
-  `Price` is scalar and cannot express it. Trigger: DeepSeek actually
-  activates the policy — build together with `ConditionalPrice` above.
+- **Time-of-day windows** — BUILT 2026-08-18, when DeepSeek activated its
+  announced 2x peak policy (peak hours 01:00-04:00 and 06:00-10:00 UTC, from
+  the pricing page's footnote). Encoding: `Price.peak: Price | None` plus
+  `Price.peak_windows: list[TimeWindow] | None` (UTC, half-open,
+  midnight-wrap-capable) and `Price.for_time(at)`; the scalar fields stay the
+  off-peak rate, so time-unaware callers keep the headline rate and nothing
+  downstream breaks. The windows are parsed from the vendor page — a vendor
+  fact, never hardcoded. Built WITHOUT `ConditionalPrice`: that mechanism's
+  only live trigger was start-date price history, which still has no consumer.
 - **Context-length tier rows** (Gemini >200k cliff, OpenAI long-context
   columns — `OpenAISource` deliberately records the short-context cells).
   `ModelEntry.tiers` already has the axis; adding a `long_context` key is

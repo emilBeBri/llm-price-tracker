@@ -10,7 +10,7 @@ import re
 
 from selectolax.parser import HTMLParser
 
-from ..models import Price
+from ..models import Price, TimeWindow
 from .base import Source, dollars
 
 
@@ -191,14 +191,36 @@ class GoogleSource(Source):
 
 
 class DeepSeekSource(Source):
-    """api-docs.deepseek.com pricing: one transposed table, models as columns."""
+    """api-docs.deepseek.com pricing: one transposed table, models as columns.
+
+    Since 2026-08-18 each metric splits into OFF-PEAK/PEAK sub-rows (peak =
+    2x off-peak). The period marker rides somewhere in the row, so the
+    OFF/PEAK decision reads the whole row label, while the metric match uses
+    the exact '1M … TOKENS' phrase — 'Json Output' in the FEATURES rows must
+    not read as the output-price row. Rows without a period marker (the
+    pre-activation table) fall to the standard rate. The window definition is
+    a vendor fact too: parsed from the page's footnote, never hardcoded.
+    """
 
     name = 'deepseek'
     url = 'https://api-docs.deepseek.com/quick_start/pricing'
     expect = ('deepseek',)
 
+    _METRIC = re.compile(
+        r'1M INPUT TOKENS \(CACHE HIT\)'
+        r'|1M INPUT TOKENS \(CACHE MISS\)'
+        r'|1M OUTPUT TOKENS'
+    )
+    _WINDOW_TEXT = re.compile(r'peak hours are\s+(.*?)\s*utc', re.IGNORECASE)
+    _TIME_RANGE = re.compile(r'(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})')
+
+    _HIT = '1M INPUT TOKENS (CACHE HIT)'
+    _MISS = '1M INPUT TOKENS (CACHE MISS)'
+    _OUT = '1M OUTPUT TOKENS'
+
     def parse(self, html: str) -> dict[str, Price]:
-        table = HTMLParser(html).css_first('table')
+        tree = HTMLParser(html)
+        table = tree.css_first('table')
         if table is None:
             return {}
         rows = [
@@ -214,29 +236,72 @@ class DeepSeekSource(Source):
             return {}
 
         n = len(models)
-        miss = outp = hit = None
+
+        def at(
+            store: dict[str, list[float | None]], metric: str, i: int
+        ) -> float | None:
+            vals = store.get(metric)
+            return vals[i] if vals and i < len(vals) else None
+
+        std: dict[str, list[float | None]] = {}
+        peak: dict[str, list[float | None]] = {}
+        cur: str | None = None
         for r in rows:
             label = ' '.join(r).upper()
+            m = self._METRIC.search(label)
+            if m:
+                cur = m.group(0)
+            if cur is None:
+                continue
+            # A row without a metric keyword AND without a period marker is
+            # unrelated table furniture (Concurrency Limit, Base URLs, ...)
+            # and must not overwrite the metric it happens to follow.
+            if not (m or 'OFF' in label or 'PEAK' in label):
+                continue
             # Price rows carry one cell per model as their TRAILING cells; the
-            # first row also carries a spanning 'PRICING' label cell.
+            # first row of the block also carries a spanning 'PRICING(1)' cell.
             cells = r[-n:] if len(r) >= n else r
-            if 'CACHE MISS' in label:
-                miss = [dollars(c) for c in cells]
-            elif 'OUTPUT TOKENS' in label:
-                outp = [dollars(c) for c in cells]
-            elif 'CACHE HIT' in label:
-                hit = [dollars(c) for c in cells]
+            if 'PEAK' in label and 'OFF' not in label:
+                peak[cur] = [dollars(c) for c in cells]
+            else:
+                std[cur] = [dollars(c) for c in cells]
 
-        def at(arr: list | None, i: int) -> float | None:
-            return arr[i] if arr and i < len(arr) else None
+        windows = self._peak_windows(tree.text(strip=True))
 
         out: dict[str, Price] = {}
         for i, mid in enumerate(models):
-            inp, o = at(miss, i), at(outp, i)
-            if inp is None or o is None:
+            inp = at(std, self._MISS, i)
+            outp = at(std, self._OUT, i)
+            if inp is None or outp is None:
                 continue
-            out[mid] = Price(input=inp, output=o, cache_read=at(hit, i))
+            peak_price = None
+            if windows:
+                p_in = at(peak, self._MISS, i)
+                p_out = at(peak, self._OUT, i)
+                if p_in is not None and p_out is not None:
+                    peak_price = Price(
+                        input=p_in,
+                        output=p_out,
+                        cache_read=at(peak, self._HIT, i),
+                    )
+            out[mid] = Price(
+                input=inp,
+                output=outp,
+                cache_read=at(std, self._HIT, i),
+                peak=peak_price,
+                peak_windows=windows if peak_price else None,
+            )
         return out
+
+    def _peak_windows(self, text: str) -> list[TimeWindow] | None:
+        """The footnote's 'Peak hours are … UTC' sentence, as TimeWindows."""
+        m = self._WINDOW_TEXT.search(text)
+        if m is None:
+            return None
+        pairs = self._TIME_RANGE.findall(m.group(1))
+        if not pairs:
+            return None
+        return [TimeWindow(start=s, end=e) for s, e in pairs]
 
 
 def _column_index(header: list[str], *needles: str) -> int | None:
