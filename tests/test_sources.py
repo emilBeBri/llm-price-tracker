@@ -120,56 +120,102 @@ def test_deepseek_transposed_table_and_steep_cache_discount():
 
 
 # --------------------------------------------------------------------------- #
-# Moonshot: the international Kimi forum publishes one USD label/value table.
-# The Chinese platform's CNY table must not be mixed into this USD-only book.
+# Moonshot: the HTML page is client-rendered (zero <table> elements), so the
+# source reads the docs site's markdown rendering, where the price table
+# survives as a server-side <DocTable> MDX block. Prices sit in JSX fragments
+# (<>{"$"}3.00</>); the component definition above must NOT be mistaken for a
+# table. The Chinese platform's CNY table must not be mixed into this
+# USD-only book.
 # --------------------------------------------------------------------------- #
-MOONSHOT_HTML = """
-<table>
-<thead><tr><th>Price Type</th><th>Price (per 1M tokens)</th></tr></thead>
-<tbody>
-<tr><td>Input Price</td><td>$3</td></tr>
-<tr><td>Cache Hit Price</td><td>$0.3</td></tr>
-<tr><td>Output Price</td><td>$15</td></tr>
-</tbody>
-</table>
-<p>For a limited time, Kimi K3 API costs are 50% off.</p>
+MOONSHOT_MD = r"""
+> ## Documentation Index
+> Fetch the complete documentation index at: https://platform.kimi.ai/docs/llms.txt
+# Flagship Model Kimi K3 Pricing
+export const DocTable = ({columns = [], rows = []}) => {
+  return <div className="doc-table-wrap">
+      <table className="doc-table">
+        {columns.length > 0 ? <colgroup>
+            {columns.map((column, index) => <col key={index} style={column.width ? {
+    width: column.width
+  } : undefined} />)}
+          </colgroup> : null}
+        <thead>
+          <tr>
+            {columns.map((column, index) => <th key={index}>{column.title}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIndex) => <tr key={rowIndex}>
+              {row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}
+            </tr>)}
+        </tbody>
+      </table>
+    </div>;
+};
+## Product Pricing
+**Explanation: Prices exclude applicable taxes.**
+<DocTable
+  columns={[
+{ title: "Model", width: "24%" },
+{ title: "Unit", width: "12%" },
+{ title: "Input Price (Cache Hit)", width: "16%" },
+{ title: "Input Price (Cache Miss)", width: "16%" },
+{ title: "Output Price", width: "14%" },
+{ title: "Context Window", width: "18%" },
+]}
+  rows={[
+["kimi-k3", "1M tokens", <>{"$"}0.30</>, <>{"$"}3.00</>, <>{"$"}15.00</>, "1,048,576 tokens"],
+]}
+/>
 """
 
 
-def test_moonshot_reads_kimi_k3_usd_rates_not_promo_prose():
-    price = MoonshotSource().parse(MOONSHOT_HTML)['kimi-k3']
+def test_moonshot_reads_kimi_k3_usd_rates_from_the_doctable_block():
+    price = MoonshotSource().parse(MOONSHOT_MD)['kimi-k3']
     assert (price.input, price.output, price.cache_read) == (3.0, 15.0, 0.3)
 
 
-def test_moonshot_requires_the_price_table_not_merely_dollar_amounts():
+def test_moonshot_requires_the_doctable_not_merely_dollar_amounts():
     assert MoonshotSource().parse('<p>Kimi K3 is 50% off from $99.</p>') == {}
 
 
 # --------------------------------------------------------------------------- #
-# Z.ai: current API prices are rows; the cached-input column sits between the
-# ordinary input and output columns.
+# Z.ai: pricing moved off the API-reference introduction page to a dedicated
+# pricing page; the source now reads its markdown rendering, where the Text
+# Models table sits under a `### Text Models` anchor. The cached-input column
+# is now 'Cached Input' (not 'Input (Cache Hit)'), and a 'Cached Input
+# Storage' column sits after it. Free rows and '-' cells must not parse.
 # --------------------------------------------------------------------------- #
-ZAI_HTML = """
-<table>
-<thead><tr><th>Model</th><th>Input (Cache Miss)</th><th>Input (Cache Hit)</th><th>Output</th></tr></thead>
-<tbody>
-<tr><td>GLM-5.2</td><td>$1.4 / 1M tokens</td><td>$0.26 / 1M tokens</td><td>$4.4 / 1M tokens</td></tr>
-<tr><td>GLM-5.2-Flash</td><td>$0.2 / 1M tokens</td><td>$0.03 / 1M tokens</td><td>$1.6 / 1M tokens</td></tr>
-</tbody>
-</table>
+ZAI_MD = r"""
+### Text Models
+
+Prices per 1M tokens.
+
+| Model               | Input  | Cached Input | Cached Input Storage | Output |
+| :------------------ | :----- | :----------- | :------------------- | :----- |
+| GLM-5.2             | \$1.4  | \$0.26       | Limited-time Free    | \$4.4  |
+| GLM-4.7-FlashX      | \$0.07 | \$0.01       | Limited-time Free    | \$0.4  |
+| GLM-4-32B-0414-128K | \$0.1  | -            | -                    | \$0.1  |
+| GLM-4.7-Flash       | Free   | Free         | Free                 | Free   |
 """
 
 
-def test_zai_maps_glm_5_2_input_cache_and_output_columns():
-    prices = ZaiSource().parse(ZAI_HTML)
+def test_zai_maps_input_cache_and_output_columns_of_the_text_table():
+    prices = ZaiSource().parse(ZAI_MD)
     standard = prices['glm-5.2']
     assert (standard.input, standard.output, standard.cache_read) == (1.4, 4.4, 0.26)
 
 
 def test_zai_parses_each_glm_model_as_its_vendor_wire_id():
-    prices = ZaiSource().parse(ZAI_HTML)
-    assert set(prices) == {'glm-5.2', 'glm-5.2-flash'}
-    assert prices['glm-5.2-flash'].output == 1.6
+    prices = ZaiSource().parse(ZAI_MD)
+    assert set(prices) == {'glm-5.2', 'glm-4.7-flashx', 'glm-4-32b-0414-128k'}
+    assert prices['glm-4.7-flashx'].output == 0.4
+
+
+def test_zai_drops_free_rows_and_missing_cache_cells():
+    prices = ZaiSource().parse(ZAI_MD)
+    assert 'glm-4.7-flash' not in prices
+    assert prices['glm-4-32b-0414-128k'].cache_read is None
 
 
 def test_first_party_sources_are_registered_before_aggregators():

@@ -50,9 +50,38 @@ vendor facts. The vendor source therefore wins the committed row and OpenRouter
 remains disagreement evidence.
 
 Moonshot has a second trap: its Chinese platform publishes CNY prices, but the
-book's unit is USD. `MoonshotSource` reads the international Kimi announcement's
-USD table and never converts the CNY page through a live exchange rate; doing so
-would turn a recorded vendor fact into a time-dependent derived estimate.
+book's unit is USD. `MoonshotSource` reads the platform docs pricing page's USD
+table (the `.md` rendering, since 2026-08-18) and never converts the CNY page
+through a live exchange rate; doing so would turn a recorded vendor fact into a
+time-dependent derived estimate.
 
 See [[deferred-structural-prices]] for what the same research report proposed
 that was deliberately NOT adopted.
+
+## Vendor docs migrated to Mintlify `.md` endpoints (2026-08-18)
+
+Both sources broke on 2026-08-18 for adjacent reasons:
+
+- **Moonshot**: `forum.kimi.com` is DNS-dead — the domain stopped resolving
+  outright. Pricing moved to `platform.kimi.ai/docs/pricing/chat-k3`
+  (`platform.moonshot.ai` now redirects to the kimi.ai domain).
+- **Z.ai**: pricing moved off `docs.z.ai/api-reference/introduction` to a
+  dedicated `docs.z.ai/guides/overview/pricing` page whose columns were renamed.
+
+The fix pattern is the one `OpenAISource` established: **fetch the `.md`
+rendering, not the HTML**. Both docs sites are Mintlify-style and client-render
+their tables (zero `<table>` elements in the raw HTML), while `<url>.md` serves
+the source markdown with the data server-side. Parser edges learned:
+
+- Kimi's `.md` wraps its table in a `<DocTable columns={…} rows={…} />` MDX
+  block, with prices in JSX fragments (`<>{"$"}3.00</>`). The fragment's `</>`
+  end matches a naive `/>` block-terminator, so the DocTable regex is
+  line-anchored on the real closer. `dollars` cannot see through the fragment
+  wrapper; cells are unwrapped first.
+- Z.ai's `.md` is a plain pipe table under `### Text Models`. Prose can sit
+  between the anchor heading and the table, and the new `Cached Input` /
+  `Cached Input Storage` columns make first-match column lookup load-bearing
+  ('input' must hit the plain Input column, 'cached' the Cached Input column).
+- Both pages list `Free` models (GLM-4.7-Flash, GLM-4.5-Flash). Rows without a
+  parseable dollar amount stay dropped, consistent with the `:free`-variant
+  edge above.

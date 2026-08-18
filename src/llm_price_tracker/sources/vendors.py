@@ -239,84 +239,215 @@ class DeepSeekSource(Source):
         return out
 
 
-class MoonshotSource(Source):
-    """Kimi's first-party USD pricing announcement.
+def _column_index(header: list[str], *needles: str) -> int | None:
+    """First column whose header contains every needle (in order)."""
+    for i, h in enumerate(header):
+        if all(n in h for n in needles):
+            return i
+    return None
 
-    Moonshot's Chinese platform lists CNY rates, while the international Kimi
-    forum publishes the USD API rate used by OpenRouter-facing consumers. The
-    K3 announcement has one label/value table rather than a model matrix.
+
+def _split_mdx_cells(row_text: str) -> list[str]:
+    """Split one DocTable row into cells on top-level commas.
+
+    Cells are "…"/`…` strings or <>…</> JSX fragments; a naive .split(',')
+    breaks on the comma inside "1,048,576 tokens" and the {"$"} braces must
+    not open a quote state while inside a fragment. String cells come back
+    unquoted; fragments stay wrapped so the money regex can see them.
+    """
+    cells: list[str] = []
+    buf: list[str] = []
+
+    def push() -> None:
+        cell = ''.join(buf).strip()
+        if len(cell) >= 2 and cell[0] in '"\'`' and cell[-1] == cell[0]:
+            cell = cell[1:-1]
+        cells.append(cell)
+
+    i, n = 0, len(row_text)
+    quote: str | None = None
+    in_frag = False
+    while i < n:
+        if in_frag:
+            if row_text.startswith('</>', i):
+                buf.append('</>')
+                in_frag = False
+                i += 3
+            else:
+                buf.append(row_text[i])
+                i += 1
+            continue
+        if quote:
+            buf.append(row_text[i])
+            if row_text[i] == quote:
+                quote = None
+            i += 1
+            continue
+        if row_text.startswith('<>', i):
+            buf.append('<>')
+            in_frag = True
+            i += 2
+            continue
+        c = row_text[i]
+        if c in '"\'':
+            quote = c
+            buf.append(c)
+            i += 1
+            continue
+        if c == ',':
+            push()
+            buf = []
+            i += 1
+            continue
+        buf.append(c)
+        i += 1
+    if buf:
+        push()
+    return cells
+
+
+class MoonshotSource(Source):
+    """Kimi K3 pricing on the platform docs — the MDX rendering.
+
+    The forum.kimi.com announcement this source used to read is DNS-dead, and
+    the pricing table now lives on platform.kimi.ai. The HTML page there is
+    client-rendered (zero <table> elements in the raw body), but the docs site
+    serves the source markdown at <url>.md, where the price table survives as
+    a server-side <DocTable> MDX block. Prices sit in JSX fragments
+    (<>{"$"}3.00</>), which `dollars` cannot see through — the fragment
+    wrapper is unwrapped before extraction.
+
+    The Chinese platform lists CNY rates; the USD table here is the rate
+    OpenRouter-facing consumers pay, and the book's unit is USD. Never
+    convert the CNY page through a live exchange rate.
     """
 
     name = 'moonshot'
-    url = 'https://forum.kimi.com/t/kimi-k3-is-live/744'
+    url = 'https://platform.kimi.ai/docs/pricing/chat-k3.md'
+    accept = 'text/markdown,text/plain,*/*'
     expect = ('kimi-k3',)
 
-    def parse(self, html: str) -> dict[str, Price]:
-        inp = outp = cached = None
-        for table in HTMLParser(html).css('table'):
-            for tr in table.css('tr'):
-                cells = [n.text(strip=True) for n in tr.css('th, td')]
-                if len(cells) < 2:
-                    continue
-                label = cells[0].lower()
-                if label == 'input price':
-                    inp = dollars(cells[-1])
-                elif label == 'output price':
-                    outp = dollars(cells[-1])
-                elif label == 'cache hit price':
-                    cached = dollars(cells[-1])
+    # Terminator is line-anchored: the closer sits on its own line (`]}` then
+    # `/>`), while every price fragment `<>{"$"}3.00</>` ends mid-line with
+    # `/>` — a bare `(.*?)/>` would stop at the first fragment.
+    _DOCTABLE = re.compile(r'<DocTable\b(.*?)^\s*/>', re.DOTALL | re.MULTILINE)
+    _TITLE = re.compile(r'title:\s*"([^"]+)"')
+    # <>{"$"}3.00</> -> $3.00, so dollars() can see it.
+    _FRAGMENT = re.compile(r'<>\{\s*"\$"\s*\}\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*</>')
 
-        if inp is None or outp is None:
-            return {}
-        return {'kimi-k3': Price(input=inp, output=outp, cache_read=cached)}
-
-
-class ZaiSource(Source):
-    """Z.ai API introduction: a normal model-by-row USD pricing table."""
-
-    name = 'zai'
-    url = 'https://docs.z.ai/api-reference/introduction'
-    expect = ('glm-5.2',)
-
-    def parse(self, html: str) -> dict[str, Price]:
+    def parse(self, body: str) -> dict[str, Price]:
         out: dict[str, Price] = {}
-        for table in HTMLParser(html).css('table'):
-            rows = [
-                [n.text(strip=True) for n in tr.css('th, td')] for tr in table.css('tr')
-            ]
-            if not rows:
-                continue
-            header = [cell.lower() for cell in rows[0]]
-
-            def column(columns: list[str], *needles: str) -> int | None:
-                for i, cell in enumerate(columns):
-                    if all(needle in cell for needle in needles):
-                        return i
-                return None
-
-            c_model = column(header, 'model')
-            c_in = column(header, 'input', 'cache miss')
-            c_cached = column(header, 'input', 'cache hit')
-            c_out = column(header, 'output')
-            if c_model is None or c_in is None or c_out is None:
+        for block in self._DOCTABLE.findall(body):
+            header = [t.lower() for t in self._TITLE.findall(block)]
+            c_model = _column_index(header, 'model')
+            c_hit = _column_index(header, 'cache hit')
+            c_miss = _column_index(header, 'cache miss')
+            c_out = _column_index(header, 'output')
+            if c_model is None or c_miss is None or c_out is None:
                 continue
 
-            for row in rows[1:]:
-                if len(row) <= max(c_model, c_in, c_out):
+            rows = re.search(r'rows=\{\[(.*?)\]\}', block, re.DOTALL)
+            if rows is None:
+                continue
+            for row_text in re.findall(r'\[(.*?)\]', rows.group(1), re.DOTALL):
+                cells = _split_mdx_cells(row_text)
+                if len(cells) <= max(c_model, c_miss, c_out):
                     continue
-                model_id = row[c_model].strip().lower()
-                if not model_id.startswith('glm-'):
-                    continue
-                inp, outp = dollars(row[c_in]), dollars(row[c_out])
+                model_id = cells[c_model].strip().lower()
+                inp = self._money(cells[c_miss])
+                outp = self._money(cells[c_out])
                 if inp is None or outp is None:
                     continue
                 out[model_id] = Price(
                     input=inp,
                     output=outp,
                     cache_read=(
-                        dollars(row[c_cached])
-                        if c_cached is not None and c_cached < len(row)
+                        self._money(cells[c_hit])
+                        if c_hit is not None and c_hit < len(cells)
                         else None
                     ),
                 )
+        return out
+
+    def _money(self, cell: str) -> float | None:
+        return dollars(self._FRAGMENT.sub(r'$\1', cell.strip()))
+
+
+class ZaiSource(Source):
+    """Z.ai pricing — the MARKDOWN rendering of the dedicated pricing page.
+
+    The API-reference introduction page that used to carry the USD table no
+    longer does; pricing moved to its own page. The docs site serves source
+    markdown at <url>.md, where the Text Models table is a plain pipe table
+    under a `### Text Models` anchor. The HTML page is client-rendered, which
+    is exactly what broke the old source (fetched, parsed 0 models).
+    """
+
+    name = 'zai'
+    url = 'https://docs.z.ai/guides/overview/pricing.md'
+    accept = 'text/markdown,text/plain,*/*'
+    expect = ('glm-5.2',)
+
+    _SECTION = '### Text Models'
+
+    def parse(self, body: str) -> dict[str, Price]:
+        lines = body.splitlines()
+        try:
+            start = next(i for i, ln in enumerate(lines) if ln.strip() == self._SECTION)
+        except StopIteration:
+            return {}
+
+        rows: list[list[str]] = []
+        for ln in lines[start + 1 :]:
+            s = ln.strip()
+            if not s:
+                continue
+            if not s.startswith('|'):
+                if rows:
+                    break  # table ended
+                continue  # prose between the anchor and the table
+            cells = [c.strip() for c in s.strip('|').split('|')]
+            if all(set(c) <= {'-', ':'} for c in cells):
+                continue  # the |---|---| separator
+            rows.append(cells)
+        if not rows:
+            return {}
+
+        header = [c.lower() for c in rows[0]]
+
+        def col(*needles: str) -> int | None:
+            for i, h in enumerate(header):
+                if all(n in h for n in needles):
+                    return i
+            return None
+
+        # First-match order is load-bearing: 'input' hits the plain Input
+        # column before Cached Input, and 'cached' hits Cached Input before
+        # Cached Input Storage.
+        c_model = col('model')
+        c_in = col('input')
+        c_cached = col('cached')
+        c_out = col('output')
+        if c_model is None or c_in is None or c_out is None:
+            return {}
+
+        out: dict[str, Price] = {}
+        for r in rows[1:]:
+            if len(r) <= max(c_model, c_in, c_out):
+                continue
+            model_id = r[c_model].strip().lower()
+            if not model_id.startswith('glm-'):
+                continue
+            inp, outp = dollars(r[c_in]), dollars(r[c_out])
+            if inp is None or outp is None:
+                continue
+            out[model_id] = Price(
+                input=inp,
+                output=outp,
+                cache_read=(
+                    dollars(r[c_cached])
+                    if c_cached is not None and c_cached < len(r)
+                    else None
+                ),
+            )
         return out
