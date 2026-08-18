@@ -7,6 +7,8 @@ whether to project a future price). Those belong to the app, not to this book.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 # The tier every entry must carry. Vendors publish several live rates for the
@@ -16,6 +18,34 @@ from pydantic import BaseModel, Field
 # it can read and names this one as the default a caller gets when it does not
 # ask. Choosing among them is the caller's job, not the book's.
 STANDARD = 'standard'
+
+
+class TimeWindow(BaseModel):
+    """One daily window when a time-variant rate is in force.
+
+    `start` is inclusive, `end` exclusive, both 'HH:MM' (24h). A window may
+    wrap midnight (`start` > `end`). Implicitly UTC: a vendor that publishes
+    another timezone's window is converted to UTC at the parse edge, so every
+    window in the book is directly comparable and callers never guess a zone.
+    """
+
+    start: str
+    end: str
+
+    @staticmethod
+    def _minutes(hhmm: str) -> int:
+        h, m = hhmm.split(':')
+        return int(h) * 60 + int(m)
+
+    def contains(self, at: datetime) -> bool:
+        """True when `at` (a UTC datetime) falls inside [start, end)."""
+        t = at.hour * 60 + at.minute
+        s, e = self._minutes(self.start), self._minutes(self.end)
+        if s == e:
+            return False  # a zero-length window matches nothing
+        if s < e:
+            return s <= t < e
+        return t >= s or t < e  # wraps midnight
 
 
 class Price(BaseModel):
@@ -36,6 +66,26 @@ class Price(BaseModel):
     output: float = Field(ge=0.0)
     cache_read: float | None = Field(default=None, ge=0.0)
     cache_write: float | None = Field(default=None, ge=0.0)
+    # Time-of-day variant: a different rate the vendor applies during
+    # `peak_windows` (DeepSeek's 2x peak hours are the live instance). The
+    # scalar fields above hold the default (off-peak) rate — the first
+    # DeepSeek policy made off-peak the announced headline rate, so the scalar
+    # must remain what a time-unaware caller gets. A caller pricing a call at
+    # a known moment uses for_time(). Without windows the variant would never
+    # apply, so `peak` is only meaningful when `peak_windows` is non-empty.
+    peak: Price | None = None
+    peak_windows: list[TimeWindow] | None = None
+
+    def for_time(self, at: datetime) -> Price:
+        """The scalar rate in force at `at` (UTC): the peak variant if `at`
+        falls inside a published window, otherwise this price."""
+        if (
+            self.peak is not None
+            and self.peak_windows
+            and any(w.contains(at) for w in self.peak_windows)
+        ):
+            return self.peak
+        return self
 
 
 class ModelEntry(BaseModel):

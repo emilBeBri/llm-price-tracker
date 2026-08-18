@@ -81,7 +81,15 @@ class BookDelta:
     verdict: Verdict | None
 
 
-def _same(a: Price, b: Price) -> bool:
+def _agree(a: Price, b: Price) -> bool:
+    """Cross-source agreement: compare the scalar rates only.
+
+    Lenient on the time-of-day variant: a source without a peak rate (every
+    aggregator) is not disagreeing with the one vendor that publishes one —
+    absence of a field the source doesn't model is not a conflict, exactly
+    like the cache-write column.
+    """
+
     def eq(x: float | None, y: float | None) -> bool:
         if x is None or y is None:
             # One source not publishing a cache rate is not a disagreement about
@@ -95,6 +103,25 @@ def _same(a: Price, b: Price) -> bool:
         and eq(a.cache_read, b.cache_read)
         and eq(a.cache_write, b.cache_write)
     )
+
+
+def _same(a: Price, b: Price) -> bool:
+    """Book-diff equality: strict on the time-of-day variant.
+
+    Where `_agree` is lenient (cross-source), the book diff must be strict:
+    the book records vendor facts, and "the vendor added a peak window" or
+    "moved the window by an hour" is a fact change that must surface as
+    CHANGED — otherwise a window edit upstream would never reach the book.
+    """
+    if not _agree(a, b):
+        return False
+    if (a.peak is None) != (b.peak is None):
+        return False
+    if a.peak is None:
+        return True
+    return _agree(a.peak, b.peak) and [
+        (w.start, w.end) for w in a.peak_windows or []
+    ] == [(w.start, w.end) for w in b.peak_windows or []]
 
 
 def reconcile(results: list[SourceResult]) -> dict[str, Verdict]:
@@ -114,7 +141,7 @@ def reconcile(results: list[SourceResult]) -> dict[str, Verdict]:
             prices = list(values.values())
             agreement = (
                 Agreement.AGREE
-                if all(_same(prices[0], p) for p in prices[1:])
+                if all(_agree(prices[0], p) for p in prices[1:])
                 else Agreement.CONFLICT
             )
         verdicts[model_id] = Verdict(model_id, agreement, values)

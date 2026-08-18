@@ -1,10 +1,23 @@
 """The offline read path: lookup, cost estimation, round-tripping the book."""
 
+from datetime import UTC, datetime
+
+
+def _utc(hour: int, minute: int) -> datetime:
+    return datetime(2026, 8, 18, hour, minute, tzinfo=UTC)
+
+
 import pytest
 
 from llm_price_tracker import estimate_cost, get_price, load_book, save_book
 from llm_price_tracker.book import DATA_PATH
-from llm_price_tracker.models import STANDARD, ModelEntry, Price, PriceBook
+from llm_price_tracker.models import (
+    STANDARD,
+    ModelEntry,
+    Price,
+    PriceBook,
+    TimeWindow,
+)
 
 
 @pytest.fixture
@@ -147,3 +160,82 @@ def test_ambiguous_normalized_match_returns_none_never_a_guess(tmp_path):
     b = PriceBook(updated_at='2026-08-01', models=entries)
     # 'M.1.0' is an exact miss and folds onto BOTH ids.
     assert get_price('M-1.0', book=b) is None
+
+
+# --------------------------------------------------------------------------- #
+# Time-of-day variant: DeepSeek's peak/off-peak policy is the live instance.
+# The scalar fields stay the off-peak rate; `at` selects the peak variant.
+# --------------------------------------------------------------------------- #
+PEAK_WINDOWS = [
+    TimeWindow(start='01:00', end='04:00'),
+    TimeWindow(start='06:00', end='10:00'),
+]
+
+
+def _peak_book() -> PriceBook:
+    return PriceBook(
+        updated_at='2026-08-18',
+        models={
+            'deepseek-v4-flash': ModelEntry(
+                id='deepseek-v4-flash',
+                vendor='deepseek',
+                tiers={
+                    STANDARD: Price(
+                        input=0.22,
+                        output=0.66,
+                        cache_read=0.007,
+                        peak=Price(input=0.44, output=1.32, cache_read=0.014),
+                        peak_windows=PEAK_WINDOWS,
+                    )
+                },
+            )
+        },
+    )
+
+
+def test_for_time_returns_peak_inside_a_window_and_off_peak_outside():
+    price = get_price('deepseek-v4-flash', book=_peak_book())
+    inside = price.for_time(_utc(2, 30))  # 02:30 UTC is peak
+    assert inside.input == 0.44 and inside.cache_read == 0.014
+    outside = price.for_time(_utc(12, 0))  # noon is off-peak
+    assert outside.input == 0.22
+
+
+def test_for_time_window_edges_are_half_open():
+    price = get_price('deepseek-v4-flash', book=_peak_book())
+    assert price.for_time(_utc(1, 0)).input == 0.44  # start incl.
+    assert price.for_time(_utc(4, 0)).input == 0.22  # end excl.
+
+
+def test_for_time_wraps_midnight():
+    wrapped = Price(
+        input=1.0,
+        output=1.0,
+        peak=Price(input=2.0, output=2.0),
+        peak_windows=[TimeWindow(start='22:00', end='02:00')],
+    )
+    assert wrapped.for_time(_utc(23, 0)).input == 2.0
+    assert wrapped.for_time(_utc(1, 0)).input == 2.0
+    assert wrapped.for_time(_utc(15, 0)).input == 1.0
+
+
+def test_no_at_is_off_peak_and_deterministic():
+    """The default must not consult a clock: same call, same answer, and the
+    headline (off-peak) rate, never a peak surprise for a time-unaware caller."""
+    book = _peak_book()
+    assert get_price('deepseek-v4-flash', book=book).input == 0.22
+    assert estimate_cost('deepseek-v4-flash', 1_000_000, 0, book=book) == pytest.approx(
+        0.22
+    )
+
+
+def test_estimate_cost_with_at_prices_peak_tokens_at_peak_rate():
+    book = _peak_book()
+    cost = estimate_cost(
+        'deepseek-v4-flash',
+        1_000_000,
+        0,
+        book=book,
+        at=_utc(7, 0),  # inside 06:00-10:00
+    )
+    assert cost == pytest.approx(0.44)

@@ -10,6 +10,7 @@ extra, and is only reached by the CLI.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 from .models import STANDARD, ModelEntry, Price, PriceBook
@@ -44,10 +45,18 @@ def _implausible_rates(book: PriceBook) -> list[str]:
     bad: list[str] = []
     for model_id, entry in book.models.items():
         for tier, price in entry.tiers.items():
-            for rate_field in ('input', 'output', 'cache_read', 'cache_write'):
-                value = getattr(price, rate_field)
-                if value is not None and value > MAX_SANE_MTOK:
-                    bad.append(f'{model_id}.{tier}.{rate_field} = ${value}/M')
+            # The peak variant nests a full Price: a unit bug in IT must trip
+            # the gate too, or the factor-1e6 error walks in through the back
+            # door.
+            for suffix, variant in (('', price), ('.peak', price.peak)):
+                if variant is None:
+                    continue
+                for rate_field in ('input', 'output', 'cache_read', 'cache_write'):
+                    value = getattr(variant, rate_field)
+                    if value is not None and value > MAX_SANE_MTOK:
+                        bad.append(
+                            f'{model_id}.{tier}{suffix}.{rate_field} = ${value}/M'
+                        )
     return bad
 
 
@@ -97,15 +106,28 @@ def get_entry(model_id: str, book: PriceBook | None = None) -> ModelEntry | None
 
 
 def get_price(
-    model_id: str, tier: str = STANDARD, book: PriceBook | None = None
+    model_id: str,
+    tier: str = STANDARD,
+    book: PriceBook | None = None,
+    at: datetime | None = None,
 ) -> Price | None:
     """Return one tier's rates, or None if the model or tier is unknown.
+
+    `at` (a UTC datetime) selects the time-of-day variant: when the vendor
+    publishes a peak window and `at` falls inside it, the peak rate is
+    returned. `at=None` — the default, and the only option that is
+    deterministic without a moment to anchor on — means the off-peak scalar.
 
     None means "not published here" and callers must handle it. This function
     will not substitute a zero, because a silent $0 is how a billing bug hides.
     """
     entry = get_entry(model_id, book)
-    return entry.tiers.get(tier) if entry else None
+    if entry is None:
+        return None
+    price = entry.tiers.get(tier)
+    if price is None or at is None:
+        return price
+    return price.for_time(at)
 
 
 def estimate_cost(
@@ -116,6 +138,7 @@ def estimate_cost(
     cache_write_tokens: int = 0,
     tier: str = STANDARD,
     book: PriceBook | None = None,
+    at: datetime | None = None,
 ) -> float | None:
     """USD for one call's usage, or None when the model/tier is unknown.
 
@@ -123,11 +146,15 @@ def estimate_cost(
     already INCLUDES the cached subsets — so those are subtracted out and
     repriced at their own rates rather than billed twice.
 
+    `at` (UTC) prices the call at the rate in force at that moment — see
+    `get_price`. Deterministic either way: the book is a snapshot, never a
+    live fetch.
+
     A vendor that publishes no cache rate gets its cached tokens billed at the
     full input rate. That over-states rather than under-states, and it beats
     inventing a discount multiplier: this book records what vendors publish.
     """
-    price = get_price(model_id, tier, book)
+    price = get_price(model_id, tier, book, at=at)
     if price is None:
         return None
 

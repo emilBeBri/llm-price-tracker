@@ -13,7 +13,7 @@ from llm_price_tracker.compare import (
     is_corroborated,
     reconcile,
 )
-from llm_price_tracker.models import STANDARD, ModelEntry, Price, PriceBook
+from llm_price_tracker.models import STANDARD, ModelEntry, Price, PriceBook, TimeWindow
 from llm_price_tracker.sources.base import SourceResult
 
 
@@ -173,3 +173,53 @@ def test_two_aggregators_agreeing_still_do_not_corroborate():
     assert verdicts['o3'].agreement is Agreement.AGREE
     deltas = diff_book(PriceBook(updated_at='2026-01-01'), verdicts)
     assert [is_corroborated(d) for d in deltas] == [False]
+
+
+# --------------------------------------------------------------------------- #
+# Time-of-day variant. Cross-source comparison is lenient (an aggregator
+# without a peak field is not disagreeing); the book diff is strict (a vendor
+# adding or moving the window is a fact change that must reach the book).
+# --------------------------------------------------------------------------- #
+def _peak_price(input_: float, window: str = '01:00-04:00') -> Price:
+    start, end = window.split('-')
+    return Price(
+        input=input_,
+        output=input_,
+        peak=Price(input=input_ * 2, output=input_ * 2),
+        peak_windows=[TimeWindow(start=start, end=end)],
+    )
+
+
+def test_vendor_peak_vs_aggregator_without_peak_is_agreement_not_conflict():
+    verdicts = reconcile(
+        [
+            _res('deepseek', {'d': _peak_price(0.22)}),
+            _res('openrouter', {'d': Price(input=0.22, output=0.22)}),
+        ]
+    )
+    assert verdicts['d'].agreement is Agreement.AGREE
+
+
+def test_book_without_peak_vs_vendor_with_peak_is_changed():
+    """The vendor added a peak policy. The book must learn about it even
+    though the scalar (off-peak) rate did not move."""
+    book = _book('d', Price(input=0.22, output=0.22))
+    verdicts = reconcile([_res('deepseek', {'d': _peak_price(0.22)})])
+    (delta,) = diff_book(book, verdicts)
+    assert delta.drift is Drift.CHANGED
+
+
+def test_window_move_is_changed_even_if_rates_are_identical():
+    book = _book('d', _peak_price(0.22))
+    verdicts = reconcile(
+        [_res('deepseek', {'d': _peak_price(0.22, window='02:00-05:00')})]
+    )
+    (delta,) = diff_book(book, verdicts)
+    assert delta.drift is Drift.CHANGED
+
+
+def test_identical_peak_policy_is_not_drift():
+    p = _peak_price(0.22)
+    book = _book('d', p)
+    (delta,) = diff_book(book, reconcile([_res('deepseek', {'d': p})]))
+    assert delta.drift is Drift.SAME
