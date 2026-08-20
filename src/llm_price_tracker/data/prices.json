@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-18",
+  "updated_at": "2026-08-20",
   "models": {
     "babbage-002": {
       "id": "babbage-002",
@@ -870,6 +870,21 @@
     },
     "glm-5.2": {
       "id": "glm-5.2",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 1.4,
+          "output": 4.4,
+          "cache_read": 0.26
+        }
+      },
+      "sources": [
+        "openrouter",
+        "zai"
+      ]
+    },
+    "glm-5.3": {
+      "id": "glm-5.3",
       "vendor": "zai",
       "tiers": {
         "standard": {
