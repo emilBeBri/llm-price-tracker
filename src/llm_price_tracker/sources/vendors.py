@@ -203,7 +203,13 @@ class DeepSeekSource(Source):
     """
 
     name = 'deepseek'
-    url = 'https://api-docs.deepseek.com/quick_start/pricing'
+    # The trailing slash is load-bearing. Without it this path started serving
+    # a DIFFERENT page on 2026-08-20 — 'Your First API Call', 45KB, one
+    # perfectly valid <table> of base_url/api_key rows — while the slashed form
+    # serves 'Models & Pricing'. Status 200, no redirect, correct content-type:
+    # the worst shape a drift can take, because every layer above reads it as a
+    # successful fetch. Only `parse` finding no MODEL row caught it.
+    url = 'https://api-docs.deepseek.com/quick_start/pricing/'
     expect = ('deepseek',)
 
     _METRIC = re.compile(

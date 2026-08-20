@@ -162,12 +162,41 @@ def test_deepseek_features_json_output_row_is_not_the_output_price():
     assert flash.output == 0.66
 
 
+# The 2026-08-20 break: `/quick_start/pricing` WITHOUT a trailing slash began
+# serving 'Your First API Call' instead of 'Models & Pricing'. 200 OK, no
+# redirect, real HTML, one entirely valid table — of base_url and api_key rows.
+DEEPSEEK_HTML_WRONG_PAGE = """
+<table><thead><tr><th>PARAM</th><th>VALUE</th></tr></thead><tbody>
+<tr><td>base_url (OpenAI)</td><td>https://api.deepseek.com</td></tr>
+<tr><td>api_key</td><td>apply for an API key</td></tr>
+<tr><td>model</td><td>deepseek-v4-flash deepseek-v4-pro</td></tr>
+</tbody></table>
+"""
+
+
 def test_deepseek_table_without_period_rows_has_no_peak_variant():
     prices = DeepSeekSource().parse(DEEPSEEK_HTML_NO_PEAK)
     pro = prices['deepseek-v4-pro']
     assert (pro.input, pro.output) == (0.435, 0.87)
     assert pro.cache_read == 0.003625
     assert pro.peak is None and pro.peak_windows is None
+
+
+def test_deepseek_a_200_serving_the_wrong_page_parses_to_nothing():
+    """The whole guardrail, in one assertion.
+
+    Note what the wrong page still contains: both model ids, in its `model`
+    row. So `expect` would have passed happily — the only thing standing
+    between a swapped document and a silently empty book row is `parse`
+    refusing to invent prices from a table it does not recognise.
+    """
+    assert DeepSeekSource().parse(DEEPSEEK_HTML_WRONG_PAGE) == {}
+
+
+def test_deepseek_url_keeps_its_trailing_slash():
+    """Not a style preference — see the comment on DeepSeekSource.url. Dropping
+    it swaps the fetched document for an unrelated one that still returns 200."""
+    assert DeepSeekSource.url.endswith('/')
 
 
 # --------------------------------------------------------------------------- #

@@ -12,6 +12,8 @@ user has supplied — the agent NEVER writes into raw/.
   authority; `-1` sentinel, Decimal scaling, conflict-table split
 - [[deferred-structural-prices]] — price history / off-peak / context tiers
   deferred with explicit triggers; research-report claims adopted vs rejected
+- [[wrong-document-200]] — DeepSeek's trailing slash; a 200 serving another page
+  entirely, and why `expect` cannot catch that shape
 
 ## alerting & exit codes
 - [[alert-tiers-are-not-data-tiers]] — watched vs background drift, `watch.toml`,
