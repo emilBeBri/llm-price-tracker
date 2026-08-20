@@ -1,0 +1,60 @@
+# Which models are worth a desktop notification.
+#
+# Two tiers, and only one of them alerts:
+#
+#   tier 1 (matched here)  price change -> table + exit 1 -> notify-send
+#   tier 2 (everything else)  price change -> reported in the run output, exit 0
+#
+# The tracker's stated purpose is to make a real price change impossible to
+# miss. Ninety-odd models all shouting at the same volume defeats that just as
+# thoroughly as no alert at all: a notification that fires because
+# `gemini-2.0-flash-lite` moved is one you learn to dismiss unread, and the day
+# `gpt-5.6-terra` gets cut 5x you dismiss that one too.
+#
+# This file is preference, not fact. It never affects what `refresh` writes —
+# an unwatched model's price still has to be correct in the book, because
+# something is still costing calls against it.
+#
+# Editing: `llm-price-tracker check --all` ignores this file entirely and
+# treats every model as tier 1, which is the audit to run before trusting a
+# quiet week.
+
+# Exact ids or globs, watched regardless of version. For models whose id
+# carries no usable version, or one-off exceptions to the family rules below.
+ids = []
+
+# Escape hatch for ids whose leading number is not a version. `gpt-oss-120b`
+# parses as gpt 120 and would clear every threshold; nothing in the book hits
+# this today, which is why the list is empty rather than absent.
+exclude_ids = []
+
+# Version thresholds. A model is watched when its family matches and its
+# version is >= min_version. The version is the first dotted number after the
+# family name, so both id shapes work: `gpt-5.6-luna` and `claude-opus-4.6`.
+
+[[families]]
+name = "gpt"
+min_version = "5.5"
+
+[[families]]
+name = "claude"
+min_version = "4.5"
+
+[[families]]
+name = "gemini"
+min_version = "3.1"
+
+[[families]]
+name = "glm"
+min_version = "5"
+
+# Not in the original four, added because they are current-generation and the
+# book has no older sibling to distinguish them from: every DeepSeek and Kimi
+# row it holds is the live model. Delete either rule to demote the family.
+[[families]]
+name = "deepseek"
+min_version = "4"
+
+[[families]]
+name = "kimi"
+min_version = "3"

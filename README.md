@@ -6,6 +6,7 @@ against each other, and committed as a reviewable artifact.
 ```bash
 uv sync --extra fetch
 uv run llm-price-tracker check                       # fetch everything, diff the book
+uv run llm-price-tracker check --all                 # …and alert on every model, not just watched ones
 uv run llm-price-tracker refresh --write             # fold live prices in
 uv run llm-price-tracker show gpt-5                   # offline lookup
 uv run llm-price-tracker relative deepseek-v4-flash  # compare every model to a reference
@@ -133,9 +134,54 @@ The failure that motivated this tool was not a missing scraper. It was a
 scraper that had been exiting non-zero for days, correctly, with nobody
 consuming the signal — while a 5x price cut went unnoticed.
 
-- `0` — everything agrees, book is current
-- `1` — the book is out of date
-- `2` — a source broke (page structure drifted, or unreachable)
+- `0` — everything agrees, or only background models moved
+- `1` — a **watched** model's price changed
+- `2` — a source broke (page structure drifted, or unreachable), or the watch
+  policy is unusable
+
+## Two tiers, because a daily alarm about `gemini-2.0-flash-lite` is not an alarm
+
+Ninety-odd models shouting at the same volume defeats the purpose as thoroughly
+as no alert at all. A notification that fires because a model you retired two
+generations ago moved by a cent is one you learn to dismiss unread — and on the
+day the model you actually bill against gets cut 5x, you dismiss that one too.
+
+So `check` splits the drift it finds. Watched models get the red table and exit
+`1`; everything else is printed and exits `0`. The split lives in
+`src/llm_price_tracker/data/watch.toml`:
+
+```toml
+[[families]]
+name = "gpt"
+min_version = "5.5"
+```
+
+A model is watched when its family matches and its version is at or above the
+threshold. The version is the **first** dotted number after the family name,
+which is what makes one rule shape cover every vendor's naming: OpenAI leads
+with it (`gpt-5.6-luna`), Anthropic trails it (`claude-opus-4.6`), DeepSeek and
+Moonshot prefix a letter (`deepseek-v4-pro`, `kimi-k3`), and the trailing build
+dates that would otherwise read as versions (`gpt-3.5-turbo-0125`,
+`gemini-2.5-computer-use-preview-10-2025`) are ignored. `ids` and `exclude_ids`
+take globs for the ids no threshold describes.
+
+Three deliberate choices in there:
+
+- **It is a filter on alerts, not on data.** `refresh` still folds every
+  corroborated change into the book, because a cost estimate for an unwatched
+  model must still be correct. Only the exit code is tiered.
+- **A broken source still exits `2`, whatever the watch list says.** A parser
+  returning zero models is precisely when filtering by model *name* is least
+  trustworthy: the watched model may be missing from the results *because* the
+  page changed, and a filter reading the surviving names would conclude all is
+  well.
+- **A policy that matches nothing is a fatal error, not an empty filter.** It
+  would silence every alert — the exact failure this repository exists to
+  prevent — so it is rejected before the first HTTPS request, and it exits `2`
+  so the notification still fires.
+
+Run `check --all` to ignore the policy entirely. That is the audit to run before
+trusting a quiet week.
 
 A systemd user timer ships in the dotfiles repo:
 

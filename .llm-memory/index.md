@@ -13,4 +13,8 @@ user has supplied — the agent NEVER writes into raw/.
 - [[deferred-structural-prices]] — price history / off-peak / context tiers
   deferred with explicit triggers; research-report claims adopted vs rejected
 
+## alerting & exit codes
+- [[alert-tiers-are-not-data-tiers]] — watched vs background drift, `watch.toml`,
+  version parsing across vendor id shapes, why a broken source still wins
+
 # orphans

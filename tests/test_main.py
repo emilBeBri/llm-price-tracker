@@ -7,6 +7,7 @@ from rich.console import Console
 from typer.testing import CliRunner
 
 from llm_price_tracker import ModelEntry, Price, PriceBook, main, save_book
+from llm_price_tracker.sources.base import SourceResult
 
 runner = CliRunner()
 
@@ -175,3 +176,138 @@ def test_pick_model_uses_hidden_exact_id_and_leaves_terminal_for_fzf(monkeypatch
 def test_relative_cell_keeps_absolute_rate_when_reference_rate_is_unavailable():
     assert main._relative_cell(0.5, None) == '$0.5 · —'
     assert main._relative_cell(0.5, 0.0) == '$0.5 · —'
+
+
+# --- check: the two-tier alert split -----------------------------------------
+#
+# The tracker's exit code is its entire product, and this is the only place a
+# price change is allowed to stop producing one. So each test below fixes one
+# way the split could go quiet when it should shout.
+
+
+@pytest.fixture()
+def alert_book_path(tmp_path):
+    path = tmp_path / 'alert-prices.json'
+    save_book(
+        PriceBook(
+            updated_at='2026-08-18',
+            models={
+                'gpt-5.6-terra': ModelEntry(
+                    id='gpt-5.6-terra',
+                    vendor='openai',
+                    tiers={'standard': Price(input=1.0, output=6.0)},
+                ),
+                'gemini-2.0-flash': ModelEntry(
+                    id='gemini-2.0-flash',
+                    vendor='google',
+                    tiers={'standard': Price(input=0.1, output=0.4)},
+                ),
+            },
+        ),
+        path,
+    )
+    return path
+
+
+def _fetched(prices_by_source, ok=True):
+    return [
+        SourceResult(name, f'https://{name}/', ok, prices)
+        for name, prices in prices_by_source.items()
+    ]
+
+
+def _stub_fetch(monkeypatch, results):
+    monkeypatch.setattr(main, '_fetch_or_exit', lambda timeout: results)
+
+
+BOOK_TERRA = {'gpt-5.6-terra': Price(input=1.0, output=6.0)}
+BOOK_GEMINI = {'gemini-2.0-flash': Price(input=0.1, output=0.4)}
+CUT_TERRA = {'gpt-5.6-terra': Price(input=0.2, output=1.2)}
+CUT_GEMINI = {'gemini-2.0-flash': Price(input=0.05, output=0.2)}
+
+
+def test_a_background_model_moving_does_not_raise_the_alarm(
+    alert_book_path, monkeypatch
+):
+    _stub_fetch(monkeypatch, _fetched({'openai': BOOK_TERRA, 'google': CUT_GEMINI}))
+
+    result = runner.invoke(main.app, ['check', '--book-path', str(alert_book_path)])
+
+    assert result.exit_code == 0
+    assert 'Background models changed' in result.stdout
+    assert 'Watched models are out of date' not in result.stdout
+    assert '1 background row(s) changed' in result.stdout
+
+
+def test_a_watched_model_moving_exits_one(alert_book_path, monkeypatch):
+    """The live incident: GPT-5.6 cut 5x, noticed three days late."""
+    _stub_fetch(monkeypatch, _fetched({'openai': CUT_TERRA, 'google': BOOK_GEMINI}))
+
+    result = runner.invoke(main.app, ['check', '--book-path', str(alert_book_path)])
+
+    assert result.exit_code == 1
+    assert 'Watched models are out of date' in result.stdout
+    assert 'gpt-5.6-terra' in result.stdout
+
+
+def test_all_promotes_every_model_for_an_audit(alert_book_path, monkeypatch):
+    _stub_fetch(monkeypatch, _fetched({'openai': BOOK_TERRA, 'google': CUT_GEMINI}))
+
+    result = runner.invoke(
+        main.app, ['check', '--all', '--book-path', str(alert_book_path)]
+    )
+
+    assert result.exit_code == 1
+    assert 'Watched models are out of date' in result.stdout
+    assert 'Background models changed' not in result.stdout
+
+
+def test_the_watched_table_is_printed_last(alert_book_path, monkeypatch):
+    """ExecStopPost tails the captured output into the notification body, so
+    the rows that earned the alert have to be the ones nearest the bottom."""
+    _stub_fetch(monkeypatch, _fetched({'openai': CUT_TERRA, 'google': CUT_GEMINI}))
+
+    result = runner.invoke(main.app, ['check', '--book-path', str(alert_book_path)])
+
+    assert result.exit_code == 1
+    assert result.stdout.index('Background models changed') < result.stdout.index(
+        'Watched models are out of date'
+    )
+
+
+def test_a_broken_source_outranks_a_quiet_watch_list(alert_book_path, monkeypatch):
+    """A parser returning nothing is exactly when filtering by model name is
+    least trustworthy: the watched model may be missing BECAUSE it broke."""
+    _stub_fetch(
+        monkeypatch,
+        _fetched({'google': CUT_GEMINI}) + _fetched({'openai': {}}, ok=False),
+    )
+
+    result = runner.invoke(main.app, ['check', '--book-path', str(alert_book_path)])
+
+    assert result.exit_code == 2
+
+
+def test_an_unusable_policy_fails_before_the_network(
+    alert_book_path, tmp_path, monkeypatch
+):
+    def never(timeout):
+        raise AssertionError('fetched despite an unusable watch policy')
+
+    monkeypatch.setattr(main, '_fetch_or_exit', never)
+    empty = tmp_path / 'watch.toml'
+    empty.write_text('ids = []\n', encoding='utf-8')
+
+    result = runner.invoke(
+        main.app,
+        [
+            'check',
+            '--watch-config',
+            str(empty),
+            '--book-path',
+            str(alert_book_path),
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert 'Watch policy unusable' in result.stdout

@@ -3,8 +3,12 @@
 Exit codes are the product here, not decoration. The bug that motivated this
 tool was not a missing scraper — it was a scraper that had been exiting non-zero
 for days with nobody consuming the signal, while a 5x price cut went unnoticed.
-So: 0 clean, 1 the book is out of date, 2 a source broke. Wire it to a timer
-that surfaces anything non-zero (see README).
+So: 0 clean, 1 a *watched* model's price moved, 2 a source broke. Wire it to a
+timer that surfaces anything non-zero (see README).
+
+Only watched models set exit 1. Everything else still gets fetched, diffed and
+printed — it just does not fire the notification. `watch.toml` holds the split
+and the reasoning; `--all` ignores it for a full audit.
 """
 
 from __future__ import annotations
@@ -28,6 +32,7 @@ from .compare import (
     reconcile,
 )
 from .models import STANDARD, Price, PriceBook
+from .watch import WatchPolicy, WatchPolicyError, load_policy
 
 app = typer.Typer(
     add_completion=False,
@@ -92,13 +97,46 @@ def _report_sources(results) -> bool:
     return all(r.ok for r in results)
 
 
+def _drift_table(deltas, title: str, title_style: str) -> Table:
+    table = Table(
+        title=title,
+        title_style=title_style,
+        title_justify='left',
+        pad_edge=False,
+    )
+    table.add_column('model', style='cyan')
+    table.add_column('drift')
+    table.add_column('book', justify='right', style='yellow')
+    table.add_column('live', justify='right', style='green')
+    table.add_column('corroborated by', style='dim')
+    for d in deltas:
+        table.add_row(
+            d.model_id,
+            d.drift.value,
+            _price_cell(d.old),
+            _price_cell(d.new),
+            ', '.join(d.verdict.corroborated_by) if d.verdict else '',
+        )
+    return table
+
+
 @app.command()
 def check(
+    all_: Annotated[
+        bool,
+        typer.Option(
+            '--all',
+            help='Ignore the watch policy: every model alerts. The full audit.',
+        ),
+    ] = False,
     uncorroborated: Annotated[
         bool,
         typer.Option(help='Also count aggregator-only models as book drift.'),
     ] = False,
     timeout: Annotated[float, typer.Option(help='Per-request timeout (s).')] = 30.0,
+    watch_config: Annotated[
+        Path | None, typer.Option(help='Override the watch policy path.')
+    ] = None,
     book_path: Annotated[
         Path | None, typer.Option(help='Override the book path.')
     ] = None,
@@ -106,7 +144,18 @@ def check(
     """Fetch every source, cross-check them, and diff against the book.
 
     Writes nothing. This is the command a timer runs.
+
+    Exit 1 means a *watched* model moved (see `watch.toml`). A change to
+    anything else is printed and exits 0 — reported, but not worth an alarm.
     """
+    # Before the network, not after: a policy typo must not cost eight HTTPS
+    # requests to discover, and it must never degrade into silence.
+    try:
+        policy = WatchPolicy.everything() if all_ else load_policy(watch_config)
+    except WatchPolicyError as e:
+        console.print(f'[red]Watch policy unusable:[/] {e}')
+        raise typer.Exit(EXIT_SOURCE_BROKEN) from e
+
     results = _fetch_or_exit(timeout)
     sources_ok = _report_sources(results)
 
@@ -174,29 +223,24 @@ def check(
     if not uncorroborated:
         changed = [d for d in changed if is_corroborated(d)]
 
-    if changed:
-        table = Table(
-            title='Book is out of date',
-            title_style='bold red',
-            title_justify='left',
-            pad_edge=False,
-        )
-        table.add_column('model', style='cyan')
-        table.add_column('drift')
-        table.add_column('book', justify='right', style='yellow')
-        table.add_column('live', justify='right', style='green')
-        table.add_column('corroborated by', style='dim')
-        for d in changed:
-            old = _price_cell(d.old)
-            new = _price_cell(d.new)
-            table.add_row(
-                d.model_id,
-                d.drift.value,
-                old,
-                new,
-                ', '.join(d.verdict.corroborated_by) if d.verdict else '',
+    watched = [d for d in changed if policy.is_watched(d.model_id)]
+    background = [d for d in changed if not policy.is_watched(d.model_id)]
+
+    # Background table first, watched table last. The systemd unit's
+    # ExecStopPost tails this output into the notification body, so the rows
+    # that earned the alert have to be the ones nearest the bottom.
+    if background:
+        console.print(
+            _drift_table(
+                background,
+                'Background models changed — reported, not alerted',
+                'dim',
             )
-        console.print(table)
+        )
+    if watched:
+        console.print(
+            _drift_table(watched, 'Watched models are out of date', 'bold red')
+        )
 
     agree = sum(1 for v in verdicts.values() if v.agreement is Agreement.AGREE)
     single = sum(1 for v in verdicts.values() if v.agreement is Agreement.SINGLE)
@@ -205,14 +249,20 @@ def check(
         f'\n[bold]{len(verdicts)}[/] models seen · '
         f'[green]{agree}[/] corroborated by 2+ sources · '
         f'{single} single-source · [yellow]{len(all_conflicts)}[/] conflicting\n'
-        f'[bold]{len(changed)}[/] book row(s) out of date · '
+        f'[bold]{len(watched)}[/] watched row(s) out of date · '
+        f'{len(background)} background row(s) changed (no alert) · '
         f'{absent} book row(s) no source mentioned · '
         f'{uncorroborated_count} aggregator-only model(s) not tracked'
     )
 
+    # A broken source outranks the watch policy on purpose. A parser returning
+    # nothing is exactly when filtering by model NAME is least trustworthy —
+    # the watched model may be missing from the results because the page
+    # changed, and a filter that reads the surviving names would conclude all
+    # is well.
     if not sources_ok:
         raise typer.Exit(EXIT_SOURCE_BROKEN)
-    if changed:
+    if watched:
         raise typer.Exit(EXIT_DRIFT)
 
 
