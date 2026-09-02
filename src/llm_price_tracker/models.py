@@ -66,6 +66,15 @@ class Price(BaseModel):
     output: float = Field(ge=0.0)
     cache_read: float | None = Field(default=None, ge=0.0)
     cache_write: float | None = Field(default=None, ge=0.0)
+    # ISO date (YYYY-MM-DD) this rate was FIRST OBSERVED in this book — not a
+    # vendor announcement date, which no source publishes reliably. A rate was
+    # usually in force for some unknown span before we first read it, so this
+    # is a lower bound on its start, and `ModelEntry.price_at` says how it
+    # treats a query that predates every recorded row. `None` means the row
+    # predates history tracking (every row did, before 2026-09-02). On a
+    # nested `peak` variant it is meaningless and stays None: a peak rate is a
+    # property of the row carrying it, so the PARENT's date governs both.
+    effective_from: str | None = None
     # Time-of-day variant: a different rate the vendor applies during
     # `peak_windows` (DeepSeek's 2x peak hours are the live instance). The
     # scalar fields above hold the default (off-peak) rate — the first
@@ -106,10 +115,47 @@ class ModelEntry(BaseModel):
     # sources agreeing is the closest thing to confidence available here.
     sources: list[str] = Field(default_factory=list)
     note: str | None = None
+    # SUPERSEDED rates per tier, oldest first. `tiers` always holds the rate in
+    # force now; a refresh that changes a rate pushes the outgoing row here.
+    # Split this way on purpose: every existing reader of `tiers` keeps working
+    # untouched, the committed diff still shows the current price where it has
+    # always been, and a book with no history serialises exactly as before.
+    history: dict[str, list[Price]] = Field(default_factory=dict)
 
     @property
     def standard(self) -> Price | None:
         return self.tiers.get(STANDARD)
+
+    def rate_history(self, tier: str = STANDARD) -> list[Price]:
+        """Every rate this book has recorded for `tier`, oldest first, with
+        the current one last. Undated rows sort before dated ones — an undated
+        row predates history tracking, so it is the oldest thing we know."""
+        rows = [*self.history.get(tier, [])]
+        current = self.tiers.get(tier)
+        if current is not None:
+            rows.append(current)
+        return sorted(rows, key=lambda p: p.effective_from or '')
+
+    def price_at(self, at: datetime | None = None, tier: str = STANDARD) -> Price | None:
+        """The rate in force for `tier` on the date of `at`.
+
+        `at=None` means now, i.e. the current row — the only answer that needs
+        no history at all, and the default everywhere.
+
+        A query that predates every recorded row returns the OLDEST known rate
+        rather than None. That is a deliberate best-effort: the alternative is
+        refusing to price a call the app definitely made, and this book's dates
+        are first-observed lower bounds anyway (see `Price.effective_from`), so
+        the oldest row is genuinely the best available answer. Compare `at`
+        against the returned row's `effective_from` when it matters whether the
+        answer is a record or an extrapolation.
+        """
+        rows = self.rate_history(tier)
+        if not rows or at is None:
+            return self.tiers.get(tier)
+        day = at.date().isoformat()
+        in_force = [p for p in rows if p.effective_from is None or p.effective_from <= day]
+        return in_force[-1] if in_force else rows[0]
 
 
 class PriceBook(BaseModel):

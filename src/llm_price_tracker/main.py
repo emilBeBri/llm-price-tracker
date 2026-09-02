@@ -330,8 +330,27 @@ def show(
     book_path: Annotated[
         Path | None, typer.Option(help='Override the book path.')
     ] = None,
+    at: Annotated[
+        str,
+        typer.Option(
+            help='Show the rates in force on this date (YYYY-MM-DD) instead of today.'
+        ),
+    ] = '',
 ) -> None:
-    """Print the committed book. Offline — no network, no sources."""
+    """Print the committed book. Offline — no network, no sources.
+
+    `--at YYYY-MM-DD` reads the recorded rate history rather than the current
+    rates: what a call on that date actually cost. A model whose rate has never
+    moved (or moved before this book started recording) shows the same numbers
+    either way; the `from` column says which observation you are looking at.
+    """
+    when: datetime | None = None
+    if at:
+        try:
+            when = datetime.fromisoformat(at).replace(tzinfo=UTC)
+        except ValueError:
+            console.print(f'[red]--at must be YYYY-MM-DD, got {at!r}[/red]')
+            raise typer.Exit(2) from None
     book = load_book(book_path)
     rows = {
         k: v
@@ -339,7 +358,11 @@ def show(
         if not filter_ or filter_.lower() in k.lower()
     }
     table = Table(
-        title=f'Price book (updated {book.updated_at})',
+        title=(
+            f'Price book (rates in force {at})'
+            if when
+            else f'Price book (updated {book.updated_at})'
+        ),
         title_justify='left',
         pad_edge=False,
         caption=str(book_path or DATA_PATH),
@@ -351,15 +374,17 @@ def show(
     table.add_column('input', justify='right')
     table.add_column('output', justify='right')
     table.add_column('cache read', justify='right', style='dim')
+    table.add_column('from', style='dim')
     table.add_column('sources', style='dim')
     for k, entry in rows.items():
-        p = entry.tiers.get(STANDARD)
+        p = entry.price_at(when) if when else entry.tiers.get(STANDARD)
         table.add_row(
             k,
             entry.vendor,
             _money(p.input) if p else '—',
             _money(p.output) if p else '—',
             _money(p.cache_read) if p else '—',
+            (p.effective_from or 'pre-history') if p else '—',
             ', '.join(entry.sources),
         )
     console.print(table)

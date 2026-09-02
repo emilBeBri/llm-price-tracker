@@ -7,11 +7,13 @@ was evaluated against this tool. Three of its schema ideas were deliberately
 deferred, each with an explicit trigger for when to build it:
 
 - **`ConditionalPrice` with `start_date`** (genai-prices' price-history
-  mechanism). Our equivalent today: the dated fact lives in the row's `note`
-  string (claude-sonnet-5 "RISES to 3.0/15.0 on 2026-09-01"), git log of
-  `prices.json` is the history, and the daily check catches a flip within 24h
-  because the vendor page changes. Trigger: the day a consumer needs to price
-  a *past* call at the rate in force *then*.
+  mechanism) — **BUILT 2026-09-02**, when the trigger fired. See
+  [[rate-history-effective-from]]. The trigger was: "the day a consumer needs
+  to price a *past* call at the rate in force *then*"; OpenAI cut gpt-5.6-sol
+  5.0/30.0 -> 4.0/20.0 and bebri-chat, which stores token counts and derives
+  cost on read, immediately began under-reporting every historical sol call by
+  a third. The shape shipped is NOT genai-prices' — see the note for why a
+  superseded-rows list beat a list-of-conditional-prices.
 - **Time-of-day windows** — BUILT 2026-08-18, when DeepSeek activated its
   announced 2x peak policy (peak hours 01:00-04:00 and 06:00-10:00 UTC, from
   the pricing page's footnote). Encoding: `Price.peak: Price | None` plus

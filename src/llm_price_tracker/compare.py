@@ -192,6 +192,12 @@ def apply_deltas(
     is not evidence the model was withdrawn — far more often the parser drifted,
     and silently dropping rows would turn one broken selector into a mass
     deletion of billing data.
+
+    A CHANGED rate does not overwrite its predecessor: the outgoing row is
+    pushed onto `ModelEntry.history[tier]` and the incoming one is stamped
+    `effective_from=updated_at`. That is what lets a consumer price a past call
+    at the rate it actually cost instead of at today's — without it, every
+    vendor price move silently rewrites the whole billing history.
     """
     models = dict(book.models)
     for d in deltas:
@@ -199,7 +205,13 @@ def apply_deltas(
             continue
         existing = models.get(d.model_id)
         tiers = dict(existing.tiers) if existing else {}
-        tiers[STANDARD] = d.new
+        history = (
+            {k: list(v) for k, v in existing.history.items()} if existing else {}
+        )
+        outgoing = tiers.get(STANDARD)
+        if outgoing is not None and not _same_rates(outgoing, d.new):
+            history.setdefault(STANDARD, []).append(outgoing)
+        tiers[STANDARD] = d.new.model_copy(update={'effective_from': updated_at})
         models[d.model_id] = ModelEntry(
             id=d.model_id,
             vendor=_vendor_of(d),
@@ -207,8 +219,16 @@ def apply_deltas(
             context_window=existing.context_window if existing else None,
             sources=d.verdict.corroborated_by if d.verdict else [],
             note=existing.note if existing else None,
+            history=history,
         )
     return PriceBook(updated_at=updated_at, models=models)
+
+
+def _same_rates(a: Price, b: Price) -> bool:
+    """Rate equality ignoring `effective_from`, so re-stamping the same numbers
+    on a refresh never pushes a duplicate row into history."""
+    fields = ('input', 'output', 'cache_read', 'cache_write', 'peak', 'peak_windows')
+    return all(getattr(a, f) == getattr(b, f) for f in fields)
 
 
 def _vendor_of(delta: BookDelta) -> str:

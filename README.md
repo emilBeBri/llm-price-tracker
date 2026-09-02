@@ -61,6 +61,35 @@ get_price('gpt-5.6-luna')  # Price(input=0.2, output=1.2, ...)
 estimate_cost('gpt-5.6-luna', 1_000_000, 50_000, cache_read_tokens=800_000)
 ```
 
+**A price change does not erase what a call cost.** A refresh that changes a
+rate pushes the outgoing one onto `ModelEntry.history` and stamps the incoming
+one with `effective_from`, so a past call can be priced at the rate in force
+then. Pass the moment and both axes resolve off it — the calendar rate first,
+then that rate's peak/off-peak window:
+
+```python
+from datetime import UTC, datetime
+
+estimate_cost('gpt-5.6-sol', 1_000_000, 1_000_000)                        # 24.00, today
+estimate_cost('gpt-5.6-sol', 1_000_000, 1_000_000,
+              at=datetime(2026, 8, 15, tzinfo=UTC))                       # 35.00, pre-cut
+```
+
+Without `at` you get today's rate — which is right for pricing a call as you
+make it, and wrong for re-pricing one you made in July. A consumer that stores
+token counts and derives cost on read (rather than snapshotting cost at call
+time) must pass `at`, or every vendor price move silently rewrites its whole
+billing history.
+
+`llm-price-tracker show <model> --at 2026-08-15` reads the same history from
+the CLI. Dates are **first-observed**: the commit that introduced the rate, a
+lower bound on when the vendor started charging it, never an announcement
+date. A query older than every recorded row returns the oldest known rate
+rather than `None` — refusing to price a call the app definitely made is
+worse, and `effective_from` on the returned row always says whether you got a
+record or an extrapolation. History before 2026-09-02 was backfilled from
+`git log` by `scripts/backfill_price_history.py`.
+
 **Vendor facts only.** The book records what a vendor publishes, keyed by the
 vendor's own model id. It holds no consuming app's billing decisions — no
 namespaced keys, no deployment aliases, no projected future prices. Apps map

@@ -239,3 +239,128 @@ def test_estimate_cost_with_at_prices_peak_tokens_at_peak_rate():
         at=_utc(7, 0),  # inside 06:00-10:00
     )
     assert cost == pytest.approx(0.44)
+
+
+# --------------------------------------------------------------------------- #
+# Rate history: pricing a PAST call at the rate in force then, not at today's.
+# Two axes resolve off one `at`, and the order matters — a peak window is a
+# property of a rate, so the calendar rate has to be chosen before the window.
+# --------------------------------------------------------------------------- #
+
+
+def _day(d: str) -> datetime:
+    return datetime.fromisoformat(d).replace(tzinfo=UTC)
+
+
+@pytest.fixture
+def historic_book(tmp_path):
+    b = PriceBook(
+        updated_at='2026-09-02',
+        models={
+            'cut-twice': ModelEntry(
+                id='cut-twice',
+                vendor='acme',
+                tiers={STANDARD: Price(input=1.0, output=2.0, effective_from='2026-08-20')},
+                history={
+                    STANDARD: [
+                        Price(input=5.0, output=30.0, effective_from='2026-06-01'),
+                        Price(input=3.0, output=12.0, effective_from='2026-07-15'),
+                    ]
+                },
+            ),
+            'peaky': ModelEntry(
+                id='peaky',
+                vendor='acme',
+                tiers={
+                    STANDARD: Price(
+                        input=2.0,
+                        output=4.0,
+                        effective_from='2026-08-20',
+                        peak=Price(input=4.0, output=8.0),
+                        peak_windows=[TimeWindow(start='01:00', end='04:00')],
+                    )
+                },
+                history={
+                    STANDARD: [
+                        Price(
+                            input=1.0,
+                            output=2.0,
+                            effective_from='2026-06-01',
+                            peak=Price(input=10.0, output=20.0),
+                            peak_windows=[TimeWindow(start='01:00', end='04:00')],
+                        )
+                    ]
+                },
+            ),
+        },
+    )
+    path = tmp_path / 'prices.json'
+    save_book(b, path)
+    return load_book(path)
+
+
+def test_at_none_is_the_current_rate(historic_book):
+    assert get_price('cut-twice', book=historic_book).input == 1.0
+
+
+def test_past_call_prices_at_the_rate_in_force_then(historic_book):
+    # The whole point: a call made in July cost 3.0/12.0 and must keep costing
+    # that after two price cuts, or every refresh rewrites the billing history.
+    assert get_price('cut-twice', book=historic_book, at=_day('2026-07-20')).input == 3.0
+    assert get_price('cut-twice', book=historic_book, at=_day('2026-06-02')).input == 5.0
+    assert get_price('cut-twice', book=historic_book, at=_day('2026-09-01')).input == 1.0
+
+
+def test_effective_from_is_inclusive_on_its_own_day(historic_book):
+    assert get_price('cut-twice', book=historic_book, at=_day('2026-07-15')).input == 3.0
+    assert get_price('cut-twice', book=historic_book, at=_day('2026-07-14')).input == 5.0
+
+
+def test_query_older_than_every_record_returns_the_oldest_known(historic_book):
+    """Best-effort, not None: refusing to price a call the app definitely made
+    is worse, and these dates are first-observed lower bounds anyway."""
+    price = get_price('cut-twice', book=historic_book, at=_day('2020-01-01'))
+    assert price.input == 5.0
+    # The caller can always tell it is an extrapolation.
+    assert price.effective_from == '2026-06-01'
+
+
+def test_calendar_rate_is_chosen_before_the_peak_window(historic_book):
+    """Both axes off one `at`. The June row's peak is 10.0, August's is 4.0 —
+    resolving the window first would bill a July call at the wrong rate's peak.
+    """
+    assert get_price('peaky', book=historic_book, at=_day('2026-06-05T02:00')).input == 10.0
+    assert get_price('peaky', book=historic_book, at=_day('2026-06-05T12:00')).input == 1.0
+    assert get_price('peaky', book=historic_book, at=_day('2026-08-25T02:00')).input == 4.0
+    assert get_price('peaky', book=historic_book, at=_day('2026-08-25T12:00')).input == 2.0
+
+
+def test_estimate_cost_uses_the_historic_rate(historic_book):
+    now = estimate_cost('cut-twice', 1_000_000, 1_000_000, book=historic_book)
+    then = estimate_cost(
+        'cut-twice', 1_000_000, 1_000_000, book=historic_book, at=_day('2026-06-10')
+    )
+    assert now == pytest.approx(3.0)
+    assert then == pytest.approx(35.0)
+
+
+def test_history_round_trips_through_save_and_load(historic_book):
+    rows = historic_book.get('cut-twice').rate_history()
+    assert [p.effective_from for p in rows] == ['2026-06-01', '2026-07-15', '2026-08-20']
+    assert [p.input for p in rows] == [5.0, 3.0, 1.0]
+
+
+def test_book_without_history_serialises_without_the_key(tmp_path):
+    """94 rows x an empty `history: {}` is noise in a file whose whole job is
+    to be reviewed by a human."""
+    b = PriceBook(
+        updated_at='2026-09-02',
+        models={
+            'plain': ModelEntry(
+                id='plain', vendor='acme', tiers={STANDARD: Price(input=1.0, output=2.0)}
+            )
+        },
+    )
+    path = tmp_path / 'prices.json'
+    save_book(b, path)
+    assert 'history' not in path.read_text()

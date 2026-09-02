@@ -223,3 +223,60 @@ def test_identical_peak_policy_is_not_drift():
     book = _book('d', p)
     (delta,) = diff_book(book, reconcile([_res('deepseek', {'d': p})]))
     assert delta.drift is Drift.SAME
+
+
+# --------------------------------------------------------------------------- #
+# Rate history: a refresh must not overwrite what a call used to cost.
+# --------------------------------------------------------------------------- #
+
+
+def test_changed_rate_pushes_the_old_row_into_history():
+    book = _book('old', Price(input=1.0, output=2.0))
+    verdicts = reconcile([_res('openai', {'old': Price(input=9.0, output=9.0)})])
+    after = apply_deltas(book, diff_book(book, verdicts), updated_at='2026-02-02')
+
+    entry = after.models['old']
+    assert entry.tiers[STANDARD].input == 9.0
+    assert entry.tiers[STANDARD].effective_from == '2026-02-02'
+    assert [p.input for p in entry.history[STANDARD]] == [1.0]
+    # The superseded row keeps whatever stamp it had — None here, because it
+    # predates history tracking, which sorts it first in rate_history().
+    assert entry.history[STANDARD][0].effective_from is None
+    assert [p.input for p in entry.rate_history()] == [1.0, 9.0]
+
+
+def test_a_new_model_is_stamped_but_gets_no_history():
+    book = _book('old', Price(input=1.0, output=2.0))
+    verdicts = reconcile([_res('openai', {'fresh': Price(input=3.0, output=4.0)})])
+    after = apply_deltas(book, diff_book(book, verdicts), updated_at='2026-02-02')
+
+    entry = after.models['fresh']
+    assert entry.tiers[STANDARD].effective_from == '2026-02-02'
+    assert entry.history == {}
+
+
+def test_restamping_the_same_rate_does_not_duplicate_history():
+    """Idempotence: a refresh that reconfirms today's price must not grow the
+    history by a row every time it runs."""
+    book = _book('m', Price(input=1.0, output=2.0))
+    verdicts = reconcile([_res('openai', {'m': Price(input=9.0, output=9.0)})])
+    once = apply_deltas(book, diff_book(book, verdicts), updated_at='2026-02-02')
+    twice = apply_deltas(once, diff_book(once, verdicts), updated_at='2026-02-03')
+
+    assert [p.input for p in twice.models['m'].history[STANDARD]] == [1.0]
+    assert twice.models['m'].tiers[STANDARD].effective_from == '2026-02-02'
+
+
+def test_history_accumulates_across_successive_cuts():
+    book = _book('m', Price(input=5.0, output=30.0))
+    after = book
+    for date, rate in (('2026-02-02', 3.0), ('2026-03-03', 1.0)):
+        verdicts = reconcile([_res('openai', {'m': Price(input=rate, output=rate * 6)})])
+        after = apply_deltas(after, diff_book(after, verdicts), updated_at=date)
+
+    assert [p.input for p in after.models['m'].rate_history()] == [5.0, 3.0, 1.0]
+    assert [p.effective_from for p in after.models['m'].rate_history()] == [
+        None,
+        '2026-02-02',
+        '2026-03-03',
+    ]

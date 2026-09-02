@@ -72,6 +72,9 @@ def save_book(book: PriceBook, path: Path | None = None) -> None:
     # Trailing newline and sorted keys keep the committed diff readable — this
     # file's whole job is to be reviewed by a human before it lands.
     payload = book.model_dump(exclude_none=True)
+    for row in payload['models'].values():
+        if not row.get('history'):
+            row.pop('history', None)
     payload['models'] = dict(sorted(payload['models'].items()))
     target.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False) + '\n', encoding='utf-8'
@@ -113,10 +116,19 @@ def get_price(
 ) -> Price | None:
     """Return one tier's rates, or None if the model or tier is unknown.
 
-    `at` (a UTC datetime) selects the time-of-day variant: when the vendor
-    publishes a peak window and `at` falls inside it, the peak rate is
-    returned. `at=None` — the default, and the only option that is
-    deterministic without a moment to anchor on — means the off-peak scalar.
+    `at` (a UTC datetime) resolves TWO independent axes, in this order:
+
+    1. **Which calendar rate.** The rate the book recorded as in force on that
+       date — `ModelEntry.price_at`. A call made before a vendor's price change
+       prices at what it actually cost, not at today's rate.
+    2. **Which time-of-day variant of it.** Within the row chosen above, a
+       vendor peak window (DeepSeek's is the live one) selects the peak rate.
+
+    Composing them in that order is the only correct sequence: peak windows are
+    a property OF a rate, so the rate has to be picked first.
+
+    `at=None` — the default, and the only option deterministic without a moment
+    to anchor on — means the current rate at its off-peak scalar.
 
     None means "not published here" and callers must handle it. This function
     will not substitute a zero, because a silent $0 is how a billing bug hides.
@@ -124,10 +136,10 @@ def get_price(
     entry = get_entry(model_id, book)
     if entry is None:
         return None
-    price = entry.tiers.get(tier)
-    if price is None or at is None:
-        return price
-    return price.for_time(at)
+    if at is None:
+        return entry.tiers.get(tier)
+    price = entry.price_at(at, tier)
+    return price.for_time(at) if price is not None else None
 
 
 def estimate_cost(
@@ -146,9 +158,12 @@ def estimate_cost(
     already INCLUDES the cached subsets — so those are subtracted out and
     repriced at their own rates rather than billed twice.
 
-    `at` (UTC) prices the call at the rate in force at that moment — see
-    `get_price`. Deterministic either way: the book is a snapshot, never a
-    live fetch.
+    `at` (UTC) prices the call at the rate in force at that moment — both the
+    calendar rate and its peak/off-peak variant; see `get_price`. Pass it for
+    anything historical: without it a past call is repriced at today's rate,
+    which silently rewrites what you were billed every time a vendor moves a
+    price. Deterministic either way: the book is a snapshot, never a live
+    fetch.
 
     A vendor that publishes no cache rate gets its cached tokens billed at the
     full input rate. That over-states rather than under-states, and it beats
