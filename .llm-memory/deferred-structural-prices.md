@@ -27,6 +27,24 @@ deferred, each with an explicit trigger for when to build it:
   additive, no schema break. Trigger: first real >200k usage on a tiered
   model in a consuming app.
 
+## The `note` field, now actually in use (2026-09-02)
+
+The `ConditionalPrice` deferral above says the dated fact "lives in the row's
+`note` string". That was aspirational until Gemini 3.8 Flash landed: the book
+now carries three notes, on `gemini-3.6-flash`, `gemini-3.7-flash` and
+`gemini-3.8-flash`, all reading `introductory rate through 2026-12-31; RISES
+to 1.50/7.50 on 2027-01-01`. Google prices all three identically and doubles
+all three on the same date, so the note is the only thing distinguishing "this
+is the real rate" from "this is a rate with four months left on it".
+
+**The gotcha when adding one:** `compare.apply_deltas` carries a note across a
+refresh with `note=existing.note if existing else None` — preserved for a row
+that already exists, dropped for a NEW one. So a new model's note cannot be
+written by `refresh --write`; add it after the first refresh lands the row,
+and it then survives every later refresh. Nothing in the schema enforces that
+a note stays true — the daily `check` catches the price flip within 24h, and
+the note is what tells a reader the flip is *scheduled* rather than a surprise.
+
 ## Report claims rejected outright
 
 - **"Seed from LiteLLM, ~1k models free"** — contradicts the report's own
