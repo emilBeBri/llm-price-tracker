@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-02",
+  "updated_at": "2026-09-03",
   "models": {
     "babbage-002": {
       "id": "babbage-002",
@@ -315,6 +315,7 @@
           "input": 0.22,
           "output": 0.66,
           "cache_read": 0.007,
+          "effective_from": "2026-08-18",
           "peak": {
             "input": 0.44,
             "output": 1.32,
@@ -323,14 +324,27 @@
           "peak_windows": [
             {
               "start": "01:00",
-              "end": "04:00"
+              "end": "04:00",
+              "days": [
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
             },
             {
               "start": "06:00",
-              "end": "10:00"
+              "end": "10:00",
+              "days": [
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
             }
-          ],
-          "effective_from": "2026-08-18"
+          ]
         }
       },
       "sources": [
@@ -349,6 +363,51 @@
         ]
       }
     },
+    "deepseek-v4-flash-vision-exp": {
+      "id": "deepseek-v4-flash-vision-exp",
+      "vendor": "deepseek",
+      "tiers": {
+        "standard": {
+          "input": 0.22,
+          "output": 0.66,
+          "cache_read": 0.007,
+          "effective_from": "2026-09-03",
+          "peak": {
+            "input": 0.44,
+            "output": 1.32,
+            "cache_read": 0.014
+          },
+          "peak_windows": [
+            {
+              "start": "01:00",
+              "end": "04:00",
+              "days": [
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
+            },
+            {
+              "start": "06:00",
+              "end": "10:00",
+              "days": [
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
+            }
+          ]
+        }
+      },
+      "sources": [
+        "deepseek",
+        "openrouter"
+      ]
+    },
     "deepseek-v4-pro": {
       "id": "deepseek-v4-pro",
       "vendor": "deepseek",
@@ -357,6 +416,7 @@
           "input": 0.66,
           "output": 1.98,
           "cache_read": 0.022,
+          "effective_from": "2026-08-18",
           "peak": {
             "input": 1.32,
             "output": 3.96,
@@ -365,14 +425,27 @@
           "peak_windows": [
             {
               "start": "01:00",
-              "end": "04:00"
+              "end": "04:00",
+              "days": [
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
             },
             {
               "start": "06:00",
-              "end": "10:00"
+              "end": "10:00",
+              "days": [
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
             }
-          ],
-          "effective_from": "2026-08-18"
+          ]
         }
       },
       "sources": [

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # The tier every entry must carry. Vendors publish several live rates for the
 # same model at once — OpenAI standard/batch/priority, xAI and Gemini <200k vs
@@ -21,16 +21,40 @@ STANDARD = 'standard'
 
 
 class TimeWindow(BaseModel):
-    """One daily window when a time-variant rate is in force.
+    """One recurring window when a time-variant rate is in force.
 
     `start` is inclusive, `end` exclusive, both 'HH:MM' (24h). A window may
     wrap midnight (`start` > `end`). Implicitly UTC: a vendor that publishes
     another timezone's window is converted to UTC at the parse edge, so every
     window in the book is directly comparable and callers never guess a zone.
+
+    `days` restricts it to certain weekdays as ISO numbers (1=Monday …
+    7=Sunday); `None` means every day. DeepSeek's peak hours are
+    Monday-Friday, and a book that omitted that billed every weekend morning
+    at 2x — an active falsehood, not a gap, because a consumer cannot tell a
+    missing restriction from an absent one. `None` rather than a full 1-7 list
+    is the unrestricted case so that books written before this field existed
+    keep their exact meaning, and so `exclude_none` keeps them out of the
+    committed JSON entirely.
     """
 
     start: str
     end: str
+    days: list[int] | None = None
+
+    @field_validator('days')
+    @classmethod
+    def _check_days(cls, v: list[int] | None) -> list[int] | None:
+        """An out-of-range or empty list can only be a parser bug: a window
+        active on no day matches nothing, which is a way of recording a peak
+        rate that silently never applies."""
+        if v is None:
+            return v
+        if not v:
+            raise ValueError('days must be non-empty; use None for every day')
+        if any(d < 1 or d > 7 for d in v):
+            raise ValueError(f'days must be ISO weekdays 1-7, got {v}')
+        return sorted(set(v))
 
     @staticmethod
     def _minutes(hhmm: str) -> int:
@@ -38,14 +62,33 @@ class TimeWindow(BaseModel):
         return int(h) * 60 + int(m)
 
     def contains(self, at: datetime) -> bool:
-        """True when `at` (a UTC datetime) falls inside [start, end)."""
+        """True when `at` (a UTC datetime) falls inside [start, end) on one of
+        `days`.
+
+        A window that wraps midnight is attributed to the day it STARTED on:
+        the tail of a 'Fri 22:00 - 02:00' window belongs to Friday's window,
+        not to Saturday. Vendors phrase these as one span with a day
+        qualifier, so splitting it across two days would be a different
+        policy from the one published.
+        """
         t = at.hour * 60 + at.minute
         s, e = self._minutes(self.start), self._minutes(self.end)
         if s == e:
             return False  # a zero-length window matches nothing
         if s < e:
-            return s <= t < e
-        return t >= s or t < e  # wraps midnight
+            if not s <= t < e:
+                return False
+            started_yesterday = False
+        else:  # wraps midnight
+            if not (t >= s or t < e):
+                return False
+            started_yesterday = t < e
+        if self.days is None:
+            return True
+        day = at.isoweekday()
+        if started_yesterday:
+            day = 7 if day == 1 else day - 1
+        return day in self.days
 
 
 class Price(BaseModel):

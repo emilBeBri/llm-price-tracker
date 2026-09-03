@@ -4,6 +4,10 @@ No network. Each fixture reproduces the exact structural trap that broke a
 parser in practice, so the test fails if someone "simplifies" the fix away.
 """
 
+from datetime import UTC, datetime
+
+import pytest
+
 from llm_price_tracker.models import Price
 from llm_price_tracker.sources import (
     SOURCES,
@@ -17,6 +21,7 @@ from llm_price_tracker.sources import (
     ZaiSource,
 )
 from llm_price_tracker.sources.base import Source, SourceResult, dollars
+from llm_price_tracker.sources.vendors import _weekdays
 
 
 def test_dollars_takes_the_first_amount():
@@ -117,6 +122,16 @@ DEEPSEEK_HTML = """
 <p>(1) Off-peak rates are half of the peak rates. Peak hours are 01:00 - 04:00 and 06:00 - 10:00 UTC (all other hours are off-peak).</p>
 """
 
+# The CURRENT footnote. The vendor added ', Monday through Friday' after the
+# zone at some point before 2026-09-03 and the parser read straight past it,
+# so the book claimed peak rates on weekends. Kept as a separate fixture
+# because DEEPSEEK_HTML above is a real earlier state of the same page and
+# still pins the unqualified path.
+DEEPSEEK_HTML_WEEKDAYS = DEEPSEEK_HTML.replace(
+    '10:00 UTC (all other hours',
+    '10:00 UTC, Monday through Friday (all other hours',
+)
+
 # The pre-activation table: one row per metric, no period marker. Must keep
 # parsing — a source that dies when the vendor REVERTS a policy is as bad as
 # one that dies when the policy changes.
@@ -154,6 +169,78 @@ def test_deepseek_peak_windows_come_from_the_footnote():
         ('01:00', '04:00'),
         ('06:00', '10:00'),
     ]
+
+
+def test_deepseek_metric_label_without_a_space_before_the_paren():
+    """The live page renders the qualifier as a nested element, so
+    `text(strip=True)` yields '1M INPUT TOKENS(CACHE HIT)'. Requiring the
+    space made every metric row miss and the source parsed 0 models — for
+    long enough that the book's DeepSeek rows froze where they were."""
+    html = DEEPSEEK_HTML_WEEKDAYS.replace('TOKENS (CACHE', 'TOKENS(CACHE')
+    flash = DeepSeekSource().parse(html)['deepseek-v4-flash']
+    assert (flash.input, flash.output, flash.cache_read) == (0.22, 0.66, 0.007)
+    assert flash.peak.cache_read == 0.014  # both spellings land in one bucket
+
+
+def test_deepseek_weekday_qualifier_is_read_off_the_footnote():
+    """The regression this field exists for: 'Monday through Friday' rode
+    unread after the zone, and every weekend morning billed at 2x."""
+    flash = DeepSeekSource().parse(DEEPSEEK_HTML_WEEKDAYS)['deepseek-v4-flash']
+    assert [w.days for w in flash.peak_windows] == [[1, 2, 3, 4, 5]] * 2
+
+
+def test_deepseek_weekend_is_off_peak_under_the_current_footnote():
+    """End to end through `for_time`, which is what a consumer actually calls."""
+    flash = DeepSeekSource().parse(DEEPSEEK_HTML_WEEKDAYS)['deepseek-v4-flash']
+    friday = datetime(2026, 9, 4, 7, 0, tzinfo=UTC)
+    saturday = datetime(2026, 9, 5, 7, 0, tzinfo=UTC)
+    assert flash.for_time(friday).input == 0.44
+    assert flash.for_time(saturday).input == 0.22
+
+
+def test_deepseek_footnote_without_a_day_qualifier_stays_unrestricted():
+    """`None`, not a synthesised 1-7 list: the earlier page said nothing about
+    days and the book must not claim it did."""
+    flash = DeepSeekSource().parse(DEEPSEEK_HTML)['deepseek-v4-flash']
+    assert [w.days for w in flash.peak_windows] == [None, None]
+
+
+def test_deepseek_an_unreadable_day_qualifier_drops_the_peak_variant():
+    """Better a known absence than a false 7-day window — see `_peak_windows`."""
+    html = DEEPSEEK_HTML.replace(
+        '10:00 UTC (all other hours',
+        '10:00 UTC, on the third Blursday of each month (all other hours',
+    )
+    flash = DeepSeekSource().parse(html)['deepseek-v4-flash']
+    assert flash.peak is None and flash.peak_windows is None
+    assert (flash.input, flash.output) == (0.22, 0.66)  # scalar rate survives
+
+
+@pytest.mark.parametrize(
+    ('phrase', 'expected'),
+    [
+        ('', None),
+        ('every day', None),
+        ('Monday through Friday', [1, 2, 3, 4, 5]),
+        ('Monday to Friday', [1, 2, 3, 4, 5]),
+        ('Mon-Fri', [1, 2, 3, 4, 5]),
+        ('weekdays', [1, 2, 3, 4, 5]),
+        ('weekends', [6, 7]),
+        ('Saturday and Sunday', [6, 7]),
+        ('Mon, Wed, Fri', [1, 3, 5]),
+        ('Tuesday', [2]),
+        # Spans wrap through Sunday rather than collapsing to nothing.
+        ('Friday-Monday', [1, 5, 6, 7]),
+    ],
+)
+def test_weekday_phrases(phrase, expected):
+    assert _weekdays(phrase) == expected
+
+
+@pytest.mark.parametrize('phrase', ['Blursday', 'the third Tuesday', 'Mon-Tue-Wed'])
+def test_an_unreadable_weekday_phrase_raises_rather_than_guessing(phrase):
+    with pytest.raises(ValueError, match='unreadable day qualifier'):
+        _weekdays(phrase)
 
 
 def test_deepseek_features_json_output_row_is_not_the_output_price():

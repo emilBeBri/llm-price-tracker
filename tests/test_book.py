@@ -8,6 +8,7 @@ def _utc(hour: int, minute: int) -> datetime:
 
 
 import pytest
+from pydantic import ValidationError
 
 from llm_price_tracker import estimate_cost, get_price, load_book, save_book
 from llm_price_tracker.book import DATA_PATH
@@ -219,6 +220,76 @@ def test_for_time_wraps_midnight():
     assert wrapped.for_time(_utc(15, 0)).input == 1.0
 
 
+def _at(day: int, hour: int, minute: int = 0) -> datetime:
+    """2026-09-<day> UTC. The 4th is a Friday, the 5th a Saturday."""
+    return datetime(2026, 9, day, hour, minute, tzinfo=UTC)
+
+
+def _restricted(days: list[int] | None, start='06:00', end='10:00') -> Price:
+    return Price(
+        input=1.0,
+        output=1.0,
+        peak=Price(input=2.0, output=2.0),
+        peak_windows=[TimeWindow(start=start, end=end, days=days)],
+    )
+
+
+def test_for_time_respects_a_weekday_restriction():
+    """DeepSeek's peak hours are Monday-Friday. A book that ignored the
+    qualifier billed every weekend morning at 2x."""
+    price = _restricted([1, 2, 3, 4, 5])
+    assert price.for_time(_at(4, 7)).input == 2.0  # Friday, inside the hours
+    assert price.for_time(_at(5, 7)).input == 1.0  # Saturday, same hours
+    assert price.for_time(_at(6, 7)).input == 1.0  # Sunday
+
+
+def test_no_days_means_every_day_not_a_synthesised_full_week():
+    """`None` is how every book written before the field existed reads, so it
+    has to keep meaning exactly what it meant then."""
+    price = _restricted(None)
+    assert price.peak_windows[0].days is None
+    assert price.for_time(_at(6, 7)).input == 2.0  # Sunday
+
+
+def test_a_wrapped_window_belongs_to_the_day_it_started_on():
+    """'Friday 22:00 - 02:00' runs into Saturday morning; that tail is still
+    Friday's window. Reading the tail as Saturday's would be a different
+    policy from the one published."""
+    price = _restricted([5], start='22:00', end='02:00')
+    assert price.for_time(_at(4, 23)).input == 2.0  # Fri 23:00
+    assert price.for_time(_at(5, 0, 30)).input == 2.0  # Sat 00:30, Friday's tail
+    assert price.for_time(_at(4, 0, 30)).input == 1.0  # Fri 00:30, Thursday's would-be
+
+
+@pytest.mark.parametrize('days', [[], [0], [8], [1, 9]])
+def test_a_nonsense_day_list_is_rejected(days):
+    """A window active on no day records a peak rate that silently never
+    applies; out-of-range can only be a parser bug."""
+    with pytest.raises(ValidationError):
+        TimeWindow(start='01:00', end='04:00', days=days)
+
+
+def test_weekday_restriction_survives_the_json_round_trip(tmp_path):
+    book = _peak_book()
+    book.models['deepseek-v4-flash'].tiers[STANDARD].peak_windows = [
+        TimeWindow(start='06:00', end='10:00', days=[1, 2, 3, 4, 5])
+    ]
+    path = tmp_path / 'prices.json'
+    save_book(book, path)
+    assert 'days' in path.read_text()
+    reloaded = get_price('deepseek-v4-flash', book=load_book(path))
+    assert reloaded.peak_windows[0].days == [1, 2, 3, 4, 5]
+    assert reloaded.for_time(_at(5, 7)).input == 0.22  # Saturday, off-peak
+
+
+def test_a_book_written_before_days_existed_omits_the_key(tmp_path):
+    """`exclude_none` keeps the committed diff free of a field that says
+    nothing — and keeps an old book byte-identical after a round trip."""
+    path = tmp_path / 'prices.json'
+    save_book(_peak_book(), path)
+    assert 'days' not in path.read_text()
+
+
 def test_no_at_is_off_peak_and_deterministic():
     """The default must not consult a clock: same call, same answer, and the
     headline (off-peak) rate, never a peak surprise for a time-unaware caller."""
@@ -260,7 +331,9 @@ def historic_book(tmp_path):
             'cut-twice': ModelEntry(
                 id='cut-twice',
                 vendor='acme',
-                tiers={STANDARD: Price(input=1.0, output=2.0, effective_from='2026-08-20')},
+                tiers={
+                    STANDARD: Price(input=1.0, output=2.0, effective_from='2026-08-20')
+                },
                 history={
                     STANDARD: [
                         Price(input=5.0, output=30.0, effective_from='2026-06-01'),
@@ -306,14 +379,24 @@ def test_at_none_is_the_current_rate(historic_book):
 def test_past_call_prices_at_the_rate_in_force_then(historic_book):
     # The whole point: a call made in July cost 3.0/12.0 and must keep costing
     # that after two price cuts, or every refresh rewrites the billing history.
-    assert get_price('cut-twice', book=historic_book, at=_day('2026-07-20')).input == 3.0
-    assert get_price('cut-twice', book=historic_book, at=_day('2026-06-02')).input == 5.0
-    assert get_price('cut-twice', book=historic_book, at=_day('2026-09-01')).input == 1.0
+    assert (
+        get_price('cut-twice', book=historic_book, at=_day('2026-07-20')).input == 3.0
+    )
+    assert (
+        get_price('cut-twice', book=historic_book, at=_day('2026-06-02')).input == 5.0
+    )
+    assert (
+        get_price('cut-twice', book=historic_book, at=_day('2026-09-01')).input == 1.0
+    )
 
 
 def test_effective_from_is_inclusive_on_its_own_day(historic_book):
-    assert get_price('cut-twice', book=historic_book, at=_day('2026-07-15')).input == 3.0
-    assert get_price('cut-twice', book=historic_book, at=_day('2026-07-14')).input == 5.0
+    assert (
+        get_price('cut-twice', book=historic_book, at=_day('2026-07-15')).input == 3.0
+    )
+    assert (
+        get_price('cut-twice', book=historic_book, at=_day('2026-07-14')).input == 5.0
+    )
 
 
 def test_query_older_than_every_record_returns_the_oldest_known(historic_book):
@@ -329,10 +412,19 @@ def test_calendar_rate_is_chosen_before_the_peak_window(historic_book):
     """Both axes off one `at`. The June row's peak is 10.0, August's is 4.0 —
     resolving the window first would bill a July call at the wrong rate's peak.
     """
-    assert get_price('peaky', book=historic_book, at=_day('2026-06-05T02:00')).input == 10.0
-    assert get_price('peaky', book=historic_book, at=_day('2026-06-05T12:00')).input == 1.0
-    assert get_price('peaky', book=historic_book, at=_day('2026-08-25T02:00')).input == 4.0
-    assert get_price('peaky', book=historic_book, at=_day('2026-08-25T12:00')).input == 2.0
+    assert (
+        get_price('peaky', book=historic_book, at=_day('2026-06-05T02:00')).input
+        == 10.0
+    )
+    assert (
+        get_price('peaky', book=historic_book, at=_day('2026-06-05T12:00')).input == 1.0
+    )
+    assert (
+        get_price('peaky', book=historic_book, at=_day('2026-08-25T02:00')).input == 4.0
+    )
+    assert (
+        get_price('peaky', book=historic_book, at=_day('2026-08-25T12:00')).input == 2.0
+    )
 
 
 def test_estimate_cost_uses_the_historic_rate(historic_book):
@@ -346,7 +438,11 @@ def test_estimate_cost_uses_the_historic_rate(historic_book):
 
 def test_history_round_trips_through_save_and_load(historic_book):
     rows = historic_book.get('cut-twice').rate_history()
-    assert [p.effective_from for p in rows] == ['2026-06-01', '2026-07-15', '2026-08-20']
+    assert [p.effective_from for p in rows] == [
+        '2026-06-01',
+        '2026-07-15',
+        '2026-08-20',
+    ]
     assert [p.input for p in rows] == [5.0, 3.0, 1.0]
 
 
@@ -357,7 +453,9 @@ def test_book_without_history_serialises_without_the_key(tmp_path):
         updated_at='2026-09-02',
         models={
             'plain': ModelEntry(
-                id='plain', vendor='acme', tiers={STANDARD: Price(input=1.0, output=2.0)}
+                id='plain',
+                vendor='acme',
+                tiers={STANDARD: Price(input=1.0, output=2.0)},
             )
         },
     )

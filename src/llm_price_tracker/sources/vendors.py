@@ -212,12 +212,24 @@ class DeepSeekSource(Source):
     url = 'https://api-docs.deepseek.com/quick_start/pricing/'
     expect = ('deepseek',)
 
+    # `\s*` before each paren, not a literal space: the page renders the
+    # qualifier as a nested element, so `text(strip=True)` concatenates it as
+    # '1M INPUT TOKENS(CACHE HIT)'. Requiring the space made every metric row
+    # miss, which parsed 0 models and froze the DeepSeek rows in the book at
+    # whatever they last were — a source that reports BROKEN, so not silent,
+    # but the fixture had the space and nothing else caught it.
     _METRIC = re.compile(
-        r'1M INPUT TOKENS \(CACHE HIT\)'
-        r'|1M INPUT TOKENS \(CACHE MISS\)'
+        r'1M INPUT TOKENS\s*\(CACHE HIT\)'
+        r'|1M INPUT TOKENS\s*\(CACHE MISS\)'
         r'|1M OUTPUT TOKENS'
     )
-    _WINDOW_TEXT = re.compile(r'peak hours are\s+(.*?)\s*utc', re.IGNORECASE)
+    # Group 1 is the time ranges, group 2 the day qualifier that follows the
+    # zone — 'Monday through Friday' rode there unread until 2026-09-03, which
+    # billed every weekend morning at the peak rate. Group 2 stops at the '('
+    # of the parenthetical or the sentence's full stop.
+    _WINDOW_TEXT = re.compile(
+        r'peak hours are\s+(.*?)\s*utc\b\s*,?\s*([^(.]*)', re.IGNORECASE
+    )
     _TIME_RANGE = re.compile(r'(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})')
 
     _HIT = '1M INPUT TOKENS (CACHE HIT)'
@@ -256,7 +268,11 @@ class DeepSeekSource(Source):
             label = ' '.join(r).upper()
             m = self._METRIC.search(label)
             if m:
-                cur = m.group(0)
+                # Canonicalise to the spacing `_HIT`/`_MISS`/`_OUT` use, so the
+                # two renderings of the same metric ('… TOKENS (CACHE HIT)' and
+                # '… TOKENS(CACHE HIT)') land in one bucket rather than two,
+                # one of which nothing ever reads.
+                cur = re.sub(r'\s*\(', ' (', m.group(0))
             if cur is None:
                 continue
             # A row without a metric keyword AND without a period marker is
@@ -300,14 +316,95 @@ class DeepSeekSource(Source):
         return out
 
     def _peak_windows(self, text: str) -> list[TimeWindow] | None:
-        """The footnote's 'Peak hours are … UTC' sentence, as TimeWindows."""
+        """The footnote's 'Peak hours are … UTC[, <days>]' sentence, as
+        TimeWindows.
+
+        A day qualifier this parser cannot read drops the windows entirely,
+        and with them the peak variant. That looks drastic next to defaulting
+        to every day, but the two failures are not symmetric: recording an
+        unrestricted window when the vendor published a restricted one is a
+        false fact that silently doubles a consumer's weekend bill, while
+        recording no window is an absence the book already models and every
+        consumer already handles. It is also loud — the peak variant
+        disappearing surfaces as a CHANGED delta for a human to read before
+        `refresh --write` lands it.
+        """
         m = self._WINDOW_TEXT.search(text)
         if m is None:
             return None
         pairs = self._TIME_RANGE.findall(m.group(1))
         if not pairs:
             return None
-        return [TimeWindow(start=s, end=e) for s, e in pairs]
+        try:
+            days = _weekdays(m.group(2))
+        except ValueError:
+            return None
+        return [TimeWindow(start=s, end=e, days=days) for s, e in pairs]
+
+
+# ISO weekday numbers, keyed by the three letters every abbreviation of a day
+# name shares ('tue'/'tues'/'tuesday'). 'through' is normalised to a dash
+# before this map is consulted, so it never collides with 'thu'.
+_DAY_PREFIX = {
+    'mon': 1,
+    'tue': 2,
+    'wed': 3,
+    'thu': 4,
+    'fri': 5,
+    'sat': 6,
+    'sun': 7,
+}
+_EVERY_DAY = ('every day', 'all days', 'all week', 'daily', '7 days')
+_RANGE_WORDS = re.compile(r'\bthrough\b|\bthru\b|\bto\b|[\u2013\u2014]')
+
+
+def _day_number(word: str) -> int | None:
+    letters = re.sub(r'[^a-z]', '', word.lower())
+    return _DAY_PREFIX.get(letters[:3]) if len(letters) >= 3 else None
+
+
+def _day_span(first: int, last: int) -> list[int]:
+    """Inclusive ISO-weekday span, wrapping through Sunday: Fri-Mon is
+    5,6,7,1. A vendor writing a span that crosses the week boundary means the
+    days between them the long way round, not an empty set."""
+    out, day = [first], first
+    while day != last:
+        day = 1 if day == 7 else day + 1
+        out.append(day)
+    return out
+
+
+def _weekdays(text: str) -> list[int] | None:
+    """The day restriction in a vendor's window sentence, as ISO weekdays.
+
+    `None` means unrestricted — an empty qualifier, or an explicit 'every
+    day'. Raises ValueError when a qualifier is present but unreadable, which
+    the caller turns into a dropped window rather than a silent 7-day one.
+    """
+    t = text.strip().lower()
+    if not t:
+        return None
+    if any(phrase in t for phrase in _EVERY_DAY):
+        return None
+    t = _RANGE_WORDS.sub('-', t).replace(' and ', ',')
+    days: set[int] = set()
+    for part in re.split(r'[,/]', t):
+        part = part.strip(' -')
+        if not part:
+            continue
+        if 'weekday' in part:
+            days.update((1, 2, 3, 4, 5))
+            continue
+        if 'weekend' in part:
+            days.update((6, 7))
+            continue
+        ends = [_day_number(x) for x in part.split('-') if x.strip()]
+        if not ends or len(ends) > 2 or any(d is None for d in ends):
+            raise ValueError(f'unreadable day qualifier: {text!r}')
+        days.update(ends if len(ends) == 1 else _day_span(*ends))
+    if not days:
+        raise ValueError(f'unreadable day qualifier: {text!r}')
+    return sorted(days)
 
 
 def _column_index(header: list[str], *needles: str) -> int | None:

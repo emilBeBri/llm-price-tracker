@@ -119,9 +119,11 @@ def _same(a: Price, b: Price) -> bool:
         return False
     if a.peak is None:
         return True
-    return _agree(a.peak, b.peak) and [
-        (w.start, w.end) for w in a.peak_windows or []
-    ] == [(w.start, w.end) for w in b.peak_windows or []]
+    # Whole-model equality, not a hand-listed tuple of fields: `days` was
+    # added to TimeWindow in 2026-09 and a field-by-field comparison would
+    # have kept a weekday restriction out of the book by simply not looking
+    # at it. Pydantic compares by value, so the next field is covered too.
+    return _agree(a.peak, b.peak) and (a.peak_windows or []) == (b.peak_windows or [])
 
 
 def reconcile(results: list[SourceResult]) -> dict[str, Verdict]:

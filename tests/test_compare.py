@@ -218,6 +218,18 @@ def test_window_move_is_changed_even_if_rates_are_identical():
     assert delta.drift is Drift.CHANGED
 
 
+def test_a_weekday_restriction_appearing_is_changed():
+    """The book diff compares whole TimeWindows, not a hand-listed tuple of
+    their fields — otherwise DeepSeek's Monday-Friday qualifier would have
+    stayed out of the book by simply never being looked at."""
+    book = _book('d', _peak_price(0.22))
+    restricted = _peak_price(0.22)
+    restricted.peak_windows[0].days = [1, 2, 3, 4, 5]
+    verdicts = reconcile([_res('deepseek', {'d': restricted})])
+    (delta,) = diff_book(book, verdicts)
+    assert delta.drift is Drift.CHANGED
+
+
 def test_identical_peak_policy_is_not_drift():
     p = _peak_price(0.22)
     book = _book('d', p)
@@ -271,7 +283,9 @@ def test_history_accumulates_across_successive_cuts():
     book = _book('m', Price(input=5.0, output=30.0))
     after = book
     for date, rate in (('2026-02-02', 3.0), ('2026-03-03', 1.0)):
-        verdicts = reconcile([_res('openai', {'m': Price(input=rate, output=rate * 6)})])
+        verdicts = reconcile(
+            [_res('openai', {'m': Price(input=rate, output=rate * 6)})]
+        )
         after = apply_deltas(after, diff_book(after, verdicts), updated_at=date)
 
     assert [p.input for p in after.models['m'].rate_history()] == [5.0, 3.0, 1.0]
