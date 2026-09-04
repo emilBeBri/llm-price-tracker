@@ -456,6 +456,12 @@ GOOGLE_HTML = """
 <tr><td>Input price</td><td>Free of charge</td><td>$0.75</td></tr>
 <tr><td>Output price (including thinking tokens)</td><td>Free of charge</td><td>$3.75</td></tr>
 </tbody></table>
+<h2 id="gemini-2.5-flash-image">Gemini 2.5 Flash Image</h2>
+<table class="pricing-table"><tbody>
+<tr><th></th><th>Free Tier</th><th>Paid Tier, per 1M tokens in USD</th></tr>
+<tr><td>Input price</td><td>Not available</td><td>$0.30 (text / image)</td></tr>
+<tr><td>Output price</td><td>Not available</td><td>$0.039 per image*</td></tr>
+</tbody></table>
 <h2 id="not-a-model">Something else</h2>
 <p>no table</p>
 """
@@ -471,6 +477,29 @@ def test_google_takes_standard_tier_and_the_paid_column():
 
 def test_google_skips_sections_without_a_pricing_table():
     assert set(GoogleSource().parse(GOOGLE_HTML)) == {'gemini-3.6-flash'}
+
+
+def test_google_refuses_a_cell_priced_in_something_other_than_tokens():
+    # '$0.039 per image' under a 'per 1M tokens' header: read as a token rate
+    # it records a $2.50/M model at $0.039/M, 64x low and far under the
+    # >$1000/M write gate. No token price, no model.
+    assert 'gemini-2.5-flash-image' not in GoogleSource().parse(GOOGLE_HTML)
+
+
+def test_google_keeps_the_token_rate_when_a_cell_carries_both_units():
+    both = (
+        '<h2 id="gemini-9-image">x</h2>'
+        '<table class="pricing-table"><tbody>'
+        '<tr><td>Input price</td><td>$2.00 (text/image),equivalent to '
+        '$0.0011 per image*</td></tr>'
+        '<tr><td>Output price</td><td>$12.00 (text and thinking)$120.00 '
+        '(images)Equivalent to $0.134 per 1K image**</td></tr>'
+        '<tr><td>Context caching price</td><td>$0.15 $1.00 / 1,000,000 tokens '
+        'per hour</td></tr>'
+        '</tbody></table>'
+    )
+    price = GoogleSource().parse(both)['gemini-9-image']
+    assert (price.input, price.output, price.cache_read) == (2.0, 12.0, 0.15)
 
 
 # --------------------------------------------------------------------------- #

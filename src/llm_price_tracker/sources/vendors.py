@@ -157,11 +157,34 @@ class OpenAISource(Source):
 
 
 class GoogleSource(Source):
-    """ai.google.dev gemini pricing: `<h2 id="gemini-...">` + a pricing table."""
+    """ai.google.dev gemini pricing: `<h2 id="gemini-...">` + a pricing table.
+
+    The column header promises "Paid Tier, per 1M tokens in USD" and an
+    individual cell is free to contradict it. Every image model's output cell
+    carries both units — `$3 (text and thinking)$60.00 (images)Equivalent to
+    $0.045 per 0.5K image` — and taking the first amount picks the token rate,
+    which is what the book records. `gemini-2.5-flash-image` is the one row
+    that publishes NO token rate: its output cell reads `$0.039 per image`
+    alone, and reading that as a per-1M-token price recorded a 2.5/M model at
+    0.039/M for a month. That error is 64x, not 1e6, so `save_book`'s
+    per-token/per-1M ceiling never sees it. A unit qualifier attached to the
+    amount therefore disqualifies the cell — no output price, no model, and
+    the row is reported absent rather than silently wrong.
+    """
 
     name = 'google'
     url = 'https://ai.google.dev/gemini-api/docs/pricing'
     expect = ('gemini-3',)
+
+    _AMOUNT = re.compile(r'\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)')
+    # What follows the amount, not what appears anywhere in the cell: the
+    # cache cell's '$0.15 $1.00 / 1,000,000 tokens per hour' is a token rate
+    # whose SECOND figure is hourly storage, and it must keep parsing.
+    _OTHER_UNIT = re.compile(
+        r'^\s*\**\s*(?:/|per)\s+(?:[\d.,]+\s*k?\s*)?'
+        r'(image|video|minute|second|hour|request|use|search)',
+        re.IGNORECASE,
+    )
 
     def parse(self, html: str) -> dict[str, Price]:
         out: dict[str, Price] = {}
@@ -179,16 +202,23 @@ class GoogleSource(Source):
                     continue
                 label = c[0].lower()
                 if label.startswith('input price'):
-                    inp = dollars(c[-1])
+                    inp = self._token_rate(c[-1])
                 elif label.startswith('output price'):
-                    outp = dollars(c[-1])
+                    outp = self._token_rate(c[-1])
                 elif label.startswith('context caching'):
                     # Cell reads "$0.15 $1.00 / 1,000,000 tokens per hour"; the
                     # first figure is the per-token read, the second is storage.
-                    cached = dollars(c[-1])
+                    cached = self._token_rate(c[-1])
             if inp is not None and outp is not None:
                 out[m.group(1)] = Price(input=inp, output=outp, cache_read=cached)
         return out
+
+    def _token_rate(self, cell: str) -> float | None:
+        """The cell's first amount, unless it is priced in something else."""
+        m = self._AMOUNT.search(cell)
+        if m is None or self._OTHER_UNIT.match(cell[m.end() :]):
+            return None
+        return float(m.group(1).replace(',', ''))
 
 
 class DeepSeekSource(Source):

@@ -21,6 +21,8 @@ user has supplied — the agent NEVER writes into raw/.
 ## parsing vendor pages
 - [[parse-the-table-not-the-heading]] — z.ai moved its flagships into a new
   section; qualify tables by shape, and when a heading anchor is still right
+- [[a-money-cell-can-lie-about-its-unit]] — struck-through list prices and
+  `$0.039 per image` under a per-1M-token header; why neither guard sees them
 
 ## alerting & exit codes
 - [[alert-tiers-are-not-data-tiers]] — watched vs background drift, `watch.toml`,

@@ -531,13 +531,14 @@
       "tiers": {
         "standard": {
           "input": 0.3,
-          "output": 0.039,
+          "output": 2.5,
           "effective_from": "2026-08-01"
         }
       },
       "sources": [
-        "google"
-      ]
+        "openrouter"
+      ],
+      "note": "output is the TEXT rate; Google's page publishes only $0.039/image, which is $30/M image-output tokens at 1290 tokens per image"
     },
     "gemini-2.5-flash-lite": {
       "id": "gemini-2.5-flash-lite",
