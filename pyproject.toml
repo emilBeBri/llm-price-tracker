@@ -57,6 +57,9 @@ extras = [
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+# Bare `pytest` otherwise walks the repo root, and `symlinks/` points at whole
+# other repositories — collection descends into them and spins for minutes.
+testpaths = ["tests"]
 addopts = "--random-order -n auto --cov=llm_price_tracker --cov-report=term-missing --cov-report=html"
 
 
