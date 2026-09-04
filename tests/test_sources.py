@@ -348,35 +348,85 @@ def test_moonshot_requires_the_doctable_not_merely_dollar_amounts():
 
 # --------------------------------------------------------------------------- #
 # Z.ai: pricing moved off the API-reference introduction page to a dedicated
-# pricing page; the source now reads its markdown rendering, where the Text
-# Models table sits under a `### Text Models` anchor. The cached-input column
-# is now 'Cached Input' (not 'Input (Cache Hit)'), and a 'Cached Input
-# Storage' column sits after it. Free rows and '-' cells must not parse.
+# pricing page; the source reads its markdown rendering. Three real traps in
+# this fixture. (1) On 2026-09-04 a `### Latest Models` table appeared ABOVE
+# `### Text Models` and the flagships moved into it, so a parser anchored on
+# the Text Models heading returned ten superseded models and no GLM-5.x —
+# every per-1M-token table is read now, whatever its section is called.
+# (2) A model on promotion renders its list price struck through before the
+# effective one (`~~\$0.15~~ \$0.075`), and `dollars` takes the first amount
+# it sees. (3) The per-image and per-use tables further down the page must
+# not read as token prices. Free rows and '-' cells must not parse.
 # --------------------------------------------------------------------------- #
 ZAI_MD = r"""
+### Latest Models
+
+Prices per 1M tokens.
+
+| Model         | Input              | Cached Input       | Cached Input Storage | Output            |
+| :------------ | :----------------- | :----------------- | :------------------- | :---------------- |
+| GLM-5.3-Flash | ~~\$0.15~~ \$0.075 | ~~\$0.03~~ \$0.015 | Limited-time Free    | ~~\$0.50~~ \$0.25 |
+| GLM-5.3       | \$1.4              | \$0.26             | Limited-time Free    | \$4.4             |
+
 ### Text Models
 
 Prices per 1M tokens.
 
 | Model               | Input  | Cached Input | Cached Input Storage | Output |
 | :------------------ | :----- | :----------- | :------------------- | :----- |
+| GLM-5.3             | \$9.9  | \$9.9        | Limited-time Free    | \$9.9  |
 | GLM-5.2             | \$1.4  | \$0.26       | Limited-time Free    | \$4.4  |
 | GLM-4.7-FlashX      | \$0.07 | \$0.01       | Limited-time Free    | \$0.4  |
 | GLM-4-32B-0414-128K | \$0.1  | -            | -                    | \$0.1  |
 | GLM-4.7-Flash       | Free   | Free         | Free                 | Free   |
+
+### Built-in Tools
+
+| Tool       | Cost         |
+| :--------- | :----------- |
+| Web Search | \$0.01 / use |
+
+### Image Generation Models
+
+Prices per image.
+
+| Model     | Price   |
+| :-------- | :------ |
+| GLM-Image | \$0.015 |
 """
 
 
-def test_zai_maps_input_cache_and_output_columns_of_the_text_table():
+def test_zai_maps_input_cache_and_output_columns_of_a_token_table():
     prices = ZaiSource().parse(ZAI_MD)
     standard = prices['glm-5.2']
     assert (standard.input, standard.output, standard.cache_read) == (1.4, 4.4, 0.26)
 
 
-def test_zai_parses_each_glm_model_as_its_vendor_wire_id():
+def test_zai_reads_every_token_table_not_one_named_section():
     prices = ZaiSource().parse(ZAI_MD)
-    assert set(prices) == {'glm-5.2', 'glm-4.7-flashx', 'glm-4-32b-0414-128k'}
+    assert set(prices) == {
+        'glm-5.3-flash',
+        'glm-5.3',
+        'glm-5.2',
+        'glm-4.7-flashx',
+        'glm-4-32b-0414-128k',
+    }
     assert prices['glm-4.7-flashx'].output == 0.4
+
+
+def test_zai_records_the_effective_rate_not_the_struck_through_list_price():
+    flash = ZaiSource().parse(ZAI_MD)['glm-5.3-flash']
+    assert (flash.input, flash.output, flash.cache_read) == (0.075, 0.25, 0.015)
+
+
+def test_zai_keeps_the_first_listing_of_a_model_named_twice():
+    # The page leads with the current table; a stale duplicate lower down must
+    # not overwrite it.
+    assert ZaiSource().parse(ZAI_MD)['glm-5.3'].input == 1.4
+
+
+def test_zai_ignores_tables_that_are_not_priced_per_1m_tokens():
+    assert 'glm-image' not in ZaiSource().parse(ZAI_MD)
 
 
 def test_zai_drops_free_rows_and_missing_cache_cells():

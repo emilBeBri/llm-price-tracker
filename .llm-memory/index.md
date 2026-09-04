@@ -18,6 +18,10 @@ user has supplied — the agent NEVER writes into raw/.
   read past the zone; `TimeWindow.days`, and why an unreadable one drops the
   window instead of defaulting to every day
 
+## parsing vendor pages
+- [[parse-the-table-not-the-heading]] — z.ai moved its flagships into a new
+  section; qualify tables by shape, and when a heading anchor is still right
+
 ## alerting & exit codes
 - [[alert-tiers-are-not-data-tiers]] — watched vs background drift, `watch.toml`,
   version parsing across vendor id shapes, why a broken source still wins

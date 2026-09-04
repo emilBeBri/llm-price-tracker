@@ -7,6 +7,7 @@ that had silently killed the OpenAI one fixed here from the start.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 
 from selectolax.parser import HTMLParser
 
@@ -415,6 +416,30 @@ def _column_index(header: list[str], *needles: str) -> int | None:
     return None
 
 
+def _pipe_tables(body: str) -> Iterator[tuple[str, list[list[str]]]]:
+    """Every markdown pipe table in `body`, with the prose line above it.
+
+    The caption is the last non-empty non-table line before the table, which
+    on these docs pages is where the unit lives ('Prices per 1M tokens.',
+    'Prices per image.'). Separator rows are dropped; the first row yielded is
+    the header.
+    """
+    caption = ''
+    rows: list[list[str]] = []
+    for line in [*body.splitlines(), '']:  # sentinel flushes a trailing table
+        s = line.strip()
+        if s.startswith('|'):
+            cells = [c.strip() for c in s.strip('|').split('|')]
+            if not all(set(c) <= {'-', ':'} for c in cells):
+                rows.append(cells)
+            continue
+        if rows:
+            yield caption, rows
+            rows = []
+        if s:
+            caption = s
+
+
 def _split_mdx_cells(row_text: str) -> list[str]:
     """Split one DocTable row into cells on top-level commas.
 
@@ -546,76 +571,75 @@ class ZaiSource(Source):
 
     The API-reference introduction page that used to carry the USD table no
     longer does; pricing moved to its own page. The docs site serves source
-    markdown at <url>.md, where the Text Models table is a plain pipe table
-    under a `### Text Models` anchor. The HTML page is client-rendered, which
-    is exactly what broke the old source (fetched, parsed 0 models).
+    markdown at <url>.md, where the price tables are plain pipe tables. The
+    HTML page is client-rendered, which is exactly what broke the old source
+    (fetched, parsed 0 models).
+
+    Every per-1M-token table is read, not one named section. Anchoring on
+    `### Text Models` is what broke on 2026-09-04: z.ai added a `### Latest
+    Models` table above it and moved GLM-5.2 and GLM-5.3 into it, so the
+    parser returned ten rows of superseded models and not one flagship. A
+    section title is a label the vendor is free to rename; the table's own
+    header is the structure. So a table qualifies on shape — model, input and
+    output columns under a 'per 1M tokens' caption — which picks up a new
+    section on the day it appears and still rejects the per-image, per-video
+    and per-use tables further down the page.
     """
 
     name = 'zai'
     url = 'https://docs.z.ai/guides/overview/pricing.md'
     accept = 'text/markdown,text/plain,*/*'
-    expect = ('glm-5.2',)
+    expect = ('glm-5',)
 
-    _SECTION = '### Text Models'
+    _PER_MTOK = re.compile(r'per\s+1M\s+tokens', re.IGNORECASE)
+    # `~~\$0.15~~ \$0.075` — the struck-through list price of a model on
+    # promotion. `dollars` takes the first amount in the cell, so leaving the
+    # strikethrough in records $0.15 for a model z.ai is charging $0.075 for.
+    # The book records the rate in force, the same call AnthropicSource makes
+    # for a dated introductory rate.
+    _STRUCK = re.compile(r'~~.*?~~')
 
     def parse(self, body: str) -> dict[str, Price]:
-        lines = body.splitlines()
-        try:
-            start = next(i for i, ln in enumerate(lines) if ln.strip() == self._SECTION)
-        except StopIteration:
-            return {}
-
-        rows: list[list[str]] = []
-        for ln in lines[start + 1 :]:
-            s = ln.strip()
-            if not s:
-                continue
-            if not s.startswith('|'):
-                if rows:
-                    break  # table ended
-                continue  # prose between the anchor and the table
-            cells = [c.strip() for c in s.strip('|').split('|')]
-            if all(set(c) <= {'-', ':'} for c in cells):
-                continue  # the |---|---| separator
-            rows.append(cells)
-        if not rows:
-            return {}
-
-        header = [c.lower() for c in rows[0]]
-
-        def col(*needles: str) -> int | None:
-            for i, h in enumerate(header):
-                if all(n in h for n in needles):
-                    return i
-            return None
-
-        # First-match order is load-bearing: 'input' hits the plain Input
-        # column before Cached Input, and 'cached' hits Cached Input before
-        # Cached Input Storage.
-        c_model = col('model')
-        c_in = col('input')
-        c_cached = col('cached')
-        c_out = col('output')
-        if c_model is None or c_in is None or c_out is None:
-            return {}
-
         out: dict[str, Price] = {}
-        for r in rows[1:]:
-            if len(r) <= max(c_model, c_in, c_out):
+        for caption, rows in _pipe_tables(body):
+            if not self._PER_MTOK.search(caption):
                 continue
-            model_id = r[c_model].strip().lower()
-            if not model_id.startswith('glm-'):
+            header = [c.lower() for c in rows[0]]
+            # First-match order is load-bearing: 'input' hits the plain Input
+            # column before Cached Input, and 'cached' hits Cached Input
+            # before Cached Input Storage.
+            c_model = _column_index(header, 'model')
+            c_in = _column_index(header, 'input')
+            c_cached = _column_index(header, 'cached')
+            c_out = _column_index(header, 'output')
+            if c_model is None or c_in is None or c_out is None:
                 continue
-            inp, outp = dollars(r[c_in]), dollars(r[c_out])
-            if inp is None or outp is None:
-                continue
-            out[model_id] = Price(
-                input=inp,
-                output=outp,
-                cache_read=(
-                    dollars(r[c_cached])
-                    if c_cached is not None and c_cached < len(r)
-                    else None
-                ),
-            )
+
+            for r in rows[1:]:
+                if len(r) <= max(c_model, c_in, c_out):
+                    continue
+                model_id = r[c_model].strip().lower()
+                if not model_id.startswith('glm-'):
+                    continue
+                inp, outp = self._money(r[c_in]), self._money(r[c_out])
+                if inp is None or outp is None:
+                    continue
+                # setdefault, not assignment: a model listed in both Latest
+                # Models and Text Models keeps the earlier row, and the page
+                # leads with the current one.
+                out.setdefault(
+                    model_id,
+                    Price(
+                        input=inp,
+                        output=outp,
+                        cache_read=(
+                            self._money(r[c_cached])
+                            if c_cached is not None and c_cached < len(r)
+                            else None
+                        ),
+                    ),
+                )
         return out
+
+    def _money(self, cell: str) -> float | None:
+        return dollars(self._STRUCK.sub('', cell))
