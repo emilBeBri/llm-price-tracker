@@ -1218,7 +1218,8 @@
       "sources": [
         "openrouter",
         "zai"
-      ]
+      ],
+      "note": "50% promotional rate through 2026-09-09 24:00 UTC+8; RISES to 0.15/0.50 (cache 0.03) after"
     },
     "glm-ocr": {
       "id": "glm-ocr",
