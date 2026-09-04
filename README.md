@@ -120,8 +120,8 @@ single-source, never guessed at.
 | `openai` | developers.openai.com pricing | markdown |
 | `google` | ai.google.dev pricing | HTML |
 | `deepseek` | api-docs.deepseek.com pricing | HTML |
-| `moonshot` | Kimi's international API pricing announcement | HTML |
-| `zai` | docs.z.ai API pricing table | HTML |
+| `moonshot` | platform.kimi.ai chat-k3 pricing | markdown (MDX) |
+| `zai` | docs.z.ai pricing, every per-1M-token table | markdown |
 | `llm-prices.com` | Simon Willison's aggregated feed | JSON |
 | `openrouter` | openrouter.ai `/api/v1/models` | JSON |
 
