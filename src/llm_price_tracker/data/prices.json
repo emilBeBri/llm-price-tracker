@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-04",
+  "updated_at": "2026-09-09",
   "models": {
     "babbage-002": {
       "id": "babbage-002",
@@ -14,6 +14,22 @@
       "sources": [
         "openai"
       ]
+    },
+    "chatgpt-image-latest": {
+      "id": "chatgpt-image-latest",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 8.0,
+          "output": 32.0,
+          "cache_read": 2.0,
+          "effective_from": "2026-09-09"
+        }
+      },
+      "sources": [
+        "openai"
+      ],
+      "note": "Image-modality rate, as published. The same model also bills text at $5.00/1M in ($1.25 cached) and $10.00/1M out."
     },
     "claude-fable-5": {
       "id": "claude-fable-5",
@@ -930,29 +946,48 @@
       "vendor": "google",
       "tiers": {
         "standard": {
-          "input": 2.0,
-          "output": 10.0,
-          "cache_read": 0.2,
-          "effective_from": "2026-08-01"
+          "input": 1.0,
+          "output": 5.0,
+          "cache_read": 0.1,
+          "effective_from": "2026-09-09"
         }
       },
       "sources": [
         "google"
-      ]
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 2.0,
+            "output": 10.0,
+            "cache_read": 0.2,
+            "effective_from": "2026-08-01"
+          }
+        ]
+      }
     },
     "gemini-robotics-er-2-streaming": {
       "id": "gemini-robotics-er-2-streaming",
       "vendor": "google",
       "tiers": {
         "standard": {
-          "input": 2.0,
-          "output": 10.0,
-          "effective_from": "2026-08-01"
+          "input": 1.0,
+          "output": 5.0,
+          "effective_from": "2026-09-09"
         }
       },
       "sources": [
         "google"
-      ]
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 2.0,
+            "output": 10.0,
+            "effective_from": "2026-08-01"
+          }
+        ]
+      }
     },
     "glm-4-32b-0414-128k": {
       "id": "glm-4-32b-0414-128k",
@@ -1695,6 +1730,104 @@
       "sources": [
         "openai"
       ]
+    },
+    "gpt-image-1": {
+      "id": "gpt-image-1",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 10.0,
+          "output": 40.0,
+          "cache_read": 2.5,
+          "effective_from": "2026-09-09"
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ],
+      "note": "Image-modality rate, as published. Text input on the same model is $5.00/1M ($1.25 cached); it emits no text output."
+    },
+    "gpt-image-1-mini": {
+      "id": "gpt-image-1-mini",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 2.5,
+          "output": 8.0,
+          "cache_read": 0.25,
+          "effective_from": "2026-09-09"
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai"
+      ],
+      "note": "Image-modality rate, as published. Text input on the same model is $2.00/1M ($0.20 cached); it emits no text output."
+    },
+    "gpt-image-1.5": {
+      "id": "gpt-image-1.5",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 8.0,
+          "output": 32.0,
+          "cache_read": 2.0,
+          "effective_from": "2026-09-09"
+        }
+      },
+      "sources": [
+        "openai"
+      ],
+      "note": "Image-modality rate, as published. The same model also bills text at $5.00/1M in ($1.25 cached) and $10.00/1M out."
+    },
+    "gpt-image-2": {
+      "id": "gpt-image-2",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 8.0,
+          "output": 30.0,
+          "cache_read": 2.0,
+          "effective_from": "2026-09-09"
+        }
+      },
+      "sources": [
+        "openai"
+      ],
+      "note": "Image-modality rate, as published. Text input on the same model is $5.00/1M ($1.25 cached); it emits no text output."
+    },
+    "gpt-image-2.5-flare": {
+      "id": "gpt-image-2.5-flare",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 8.0,
+          "output": 30.0,
+          "cache_read": 2.0,
+          "effective_from": "2026-09-09"
+        }
+      },
+      "sources": [
+        "openai"
+      ],
+      "note": "Image-modality rate, as published. Text input on the same model is $5.00/1M ($1.25 cached); it emits no text output."
+    },
+    "gpt-image-2.5-sunburst": {
+      "id": "gpt-image-2.5-sunburst",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 8.0,
+          "output": 30.0,
+          "cache_read": 2.0,
+          "effective_from": "2026-09-09"
+        }
+      },
+      "sources": [
+        "openai"
+      ],
+      "note": "Image-modality rate, as published. Text input on the same model is $5.00/1M ($1.25 cached); it emits no text output."
     },
     "kimi-k3": {
       "id": "kimi-k3",
