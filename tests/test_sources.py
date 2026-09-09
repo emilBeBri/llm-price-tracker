@@ -49,6 +49,40 @@ OPENAI_MD = """# Pricing
 | Model | Short context input | Short context cached input | Short context cache writes | Short context output |
 | --- | --- | --- | --- | --- |
 | gpt-5.6-luna | $0.10 | $0.01 | $0.125 | $0.60 |
+
+Cyber models
+
+### Grouped Pricing Table data
+
+| Model | Short context input | Short context cached input | Short context cache writes | Short context output |
+| --- | --- | --- | --- | --- |
+| gpt-5.6-cyber | $12.50 | $1.25 | $15.625 | $75.00 |
+
+Image generation models
+
+Prices per 1M tokens.
+
+Standard
+
+      For image generation cost estimates, use the calculator in the image generation guide.
+
+### Grouped Pricing Table data
+
+| Model | Modality | Input | Cached input | Output |
+| --- | --- | --- | --- | --- |
+| gpt-image-2.5-sunburst | Image | $8.00 | $2.00 | $30.00 |
+| gpt-image-2.5-sunburst | Text | $5.00 | $1.25 | - |
+| gpt-image-1-mini | Image | $2.50 | $0.25 | $8.00 |
+| gpt-image-1-mini | Text | $2.00 | $0.20 | - |
+
+Batch
+
+### Grouped Pricing Table data
+
+| Model | Modality | Input | Cached input | Output |
+| --- | --- | --- | --- | --- |
+| gpt-image-2.5-sunburst | Image | $4.00 | $1.00 | $15.00 |
+| gpt-image-2.5-sunburst | Text | $2.50 | $0.625 | - |
 """
 
 
@@ -75,6 +109,45 @@ def test_openai_covers_the_o_series():
 
 def test_openai_without_the_standard_heading_parses_nothing():
     assert OpenAISource().parse('# Pricing\n\nno tables here') == {}
+
+
+def test_openai_image_models_come_from_the_image_row_not_the_text_row():
+    """Both rows share a header; only the Image one has an output price."""
+    sunburst = OpenAISource().parse(OPENAI_MD)['gpt-image-2.5-sunburst']
+    assert (sunburst.input, sunburst.cache_read, sunburst.output) == (8.0, 2.0, 30.0)
+
+
+def test_openai_image_models_take_standard_not_batch():
+    assert OpenAISource().parse(OPENAI_MD)['gpt-image-2.5-sunburst'].input != 4.0
+
+
+def test_openai_image_section_does_not_grab_the_cyber_grouped_table():
+    """'### Grouped Pricing Table data' is reused across the page; the cyber
+    table sits above the image section and shares the heading."""
+    prices = OpenAISource().parse(OPENAI_MD)
+    assert 'gpt-image-1-mini' in prices
+    assert prices['gpt-image-1-mini'].output == 8.0
+
+
+def test_openai_image_section_missing_leaves_the_text_lineup_intact():
+    text_only = OPENAI_MD.split('Image generation models')[0]
+    prices = OpenAISource().parse(text_only)
+    assert prices['gpt-5.6-luna'].input == 0.20
+    assert not [m for m in prices if 'image' in m]
+
+
+def test_openai_image_table_behind_another_tier_tab_is_refused():
+    """A reordering that puts Batch first must yield nothing, not batch rates."""
+    swapped = OPENAI_MD.replace('\nStandard\n', '\nFlex\n', 1)
+    assert not [m for m in OpenAISource().parse(swapped) if 'image' in m]
+
+
+def test_openai_image_renamed_column_yields_no_rows():
+    renamed = OPENAI_MD.replace(
+        '| Model | Modality | Input | Cached input | Output |',
+        '| Model | Modality | In | Cached input | Output |',
+    )
+    assert not [m for m in OpenAISource().parse(renamed) if 'image' in m]
 
 
 # --------------------------------------------------------------------------- #

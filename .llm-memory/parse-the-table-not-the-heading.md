@@ -46,6 +46,25 @@ The distinction is what the heading is *doing*:
 
 Anchor on a heading only when shape is ambiguous. Never to find the models.
 
+## A third case: a heading that does neither (2026-09-09)
+
+OpenAI's image, cyber, realtime/audio, video and fine-tuning tables all sit
+under the *same* heading, `### Grouped Pricing Table data` — a component render
+artefact, not an editorial choice. It groups nothing and disambiguates nothing,
+so it is useless in both directions: as an anchor it finds whichever table
+comes first (the cyber one), and shape cannot separate the image section's
+Standard table from its Batch table because they are identical.
+
+What actually disambiguates there is a bare prose line — the section title
+`Image generation models`, then the tier tab `Standard` — so
+`_parse_image_models` anchors on those and **refuses outright** if another tier
+label (`Batch`, `Flex`, `Fast`, `Priority`) turns up before the table. That
+refusal is the point: the alternative to a wrong anchor is no rows, never
+best-effort rows. The standard-table parser was left byte-identical rather than
+generalised into a shared helper, because the one thing a shared "find the next
+table" helper would buy is the ability for one table's absence to silently pick
+up another table's rows.
+
 ## `expect` was retuned, deliberately
 
 `expect` went from `('glm-5.2',)` to `('glm-5',)`, the family-level form the

@@ -21,7 +21,14 @@
 
 # Exact ids or globs, watched regardless of version. For models whose id
 # carries no usable version, or one-off exceptions to the family rules below.
-ids = []
+#
+# gpt-image-2.5-* is here because the `gpt` family rule cannot see it: the
+# first dotted number after `gpt` is the IMAGE line's 2.5, not the text line's,
+# so a current-generation model reads as four versions stale and clears no
+# threshold. This is the mirror image of exclude_ids below — there a number is
+# not a version, here it is a version of a different product. Narrow on
+# purpose: gpt-image-2 and the 1.x line stay background.
+ids = ["gpt-image-2.5-*"]
 
 # Escape hatch for ids whose leading number is not a version. `gpt-oss-120b`
 # parses as gpt 120 and would clear every threshold; nothing in the book hits

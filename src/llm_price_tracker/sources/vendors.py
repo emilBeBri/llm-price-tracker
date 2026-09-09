@@ -87,19 +87,49 @@ class OpenAISource(Source):
     `cache writes` column sits between cached-input and output, so anything
     that pins output to a fixed index reads cache-writes as the output price.
     Columns are located by name here.
+
+    The image models are NOT in that table. They live in their own section
+    under a `### Grouped Pricing Table data` heading that the page reuses for a
+    dozen unrelated tables, so they need a different anchor and a different
+    row filter — see `_parse_image_models`. The two parses are kept separate
+    rather than generalised: each stops on a different rule, and the shared
+    helper that would unify them is exactly what would let one table's failure
+    silently pick up another table's rows.
     """
 
     name = 'openai'
     url = 'https://developers.openai.com/api/docs/pricing'
     accept = 'text/markdown,text/plain,*/*'
-    expect = ('gpt-5',)
+    # gpt-image is here so the image section vanishing is reported as drift
+    # rather than read as "OpenAI stopped selling image models".
+    expect = ('gpt-5', 'gpt-image')
 
     _SECTION = '### Standard pricing data'
     # 'gpt-5.5 (<272K context length)' -> 'gpt-5.5'
     _SUFFIX = re.compile(r'\s*\(.*?\)\s*$')
+    _IMAGE_SECTION = 'Image generation models'
+    # The tier tabs rendered inside a section. 'Standard' is the one we record;
+    # the rest exist to be refused.
+    _TIER_LABELS = ('Standard', 'Batch', 'Flex', 'Fast', 'Priority')
+
+    @staticmethod
+    def _cells(line: str) -> list[str] | None:
+        """Split one markdown table line, or None if it is the |---| separator."""
+        cells = [c.strip() for c in line.strip().strip('|').split('|')]
+        if all(set(c) <= {'-', ':'} for c in cells):
+            return None
+        return cells
 
     def parse(self, body: str) -> dict[str, Price]:
         lines = body.splitlines()
+        out = self._parse_standard(lines)
+        # Image ids ('gpt-image-*', 'chatgpt-image-latest') cannot collide with
+        # the standard table's, so a plain merge is safe, and a drifted image
+        # section costs those rows without touching the text lineup.
+        out.update(self._parse_image_models(lines))
+        return out
+
+    def _parse_standard(self, lines: list[str]) -> dict[str, Price]:
         try:
             start = next(i for i, ln in enumerate(lines) if ln.strip() == self._SECTION)
         except StopIteration:
@@ -112,8 +142,8 @@ class OpenAISource(Source):
                 continue
             if not s.startswith('|'):
                 break  # table ended
-            cells = [c.strip() for c in s.strip('|').split('|')]
-            if all(set(c) <= {'-', ':'} for c in cells):
+            cells = self._cells(s)
+            if cells is None:
                 continue  # the |---|---| separator
             rows.append(cells)
         if not rows:
@@ -152,6 +182,100 @@ class OpenAISource(Source):
                     cache_read=dollars(r[c_cached]) if c_cached is not None else None,
                     cache_write=dollars(r[c_write]) if c_write is not None else None,
                 ),
+            )
+        return out
+
+    def _parse_image_models(self, lines: list[str]) -> dict[str, Price]:
+        """The 'Image generation models' section's Standard table.
+
+        Three things separate this table from the standard one, and each is its
+        own way to record a confident wrong number:
+
+        1. Its heading, `### Grouped Pricing Table data`, is shared with about
+           a dozen other tables on the page — cyber models, realtime/audio,
+           video, fine-tuning. Anchoring on the heading picks whichever comes
+           first, which is the cyber table. The anchor is the section title,
+           then the tier tab, then the first table under it.
+        2. Standard and Batch render IDENTICAL headers inside the section — the
+           same trap `### Standard pricing data` was introduced to fix upstream
+           for the text models, and it has no equivalent heading here. So we
+           refuse outright if any other tier label appears between 'Standard'
+           and the table, rather than reading on and billing batch rates as
+           standard.
+        3. Every model occupies TWO rows, one per modality, and the row we want
+           is the Image one. Text is not a lesser copy of it: on five of the
+           seven models the Text row's output cell is '-' (they emit no text at
+           all), and on the two that do emit text it is a different, lower rate
+           for a different product. Only the Image row is complete for every
+           model, and image tokens are what an image call is actually billed
+           for.
+
+           We record that row AS PUBLISHED. Pairing the text INPUT rate ($5.00)
+           with the image OUTPUT rate ($30.00) would describe a text-prompt
+           generation call more accurately, and that is exactly why it does not
+           belong here: which modality a caller sends is a consuming app's
+           billing choice, and this book holds vendor facts. The per-model text
+           rate lives in the book row's note instead.
+        """
+        try:
+            start = next(
+                i for i, ln in enumerate(lines) if ln.strip() == self._IMAGE_SECTION
+            )
+        except StopIteration:
+            return {}
+
+        tier = None
+        for i in range(start + 1, len(lines)):
+            s = lines[i].strip()
+            if s == 'Standard':
+                tier = i
+                break
+            # A table, or another tier's tab, before the Standard tab means the
+            # section is not shaped the way this parser was written against.
+            if s in self._TIER_LABELS or s.startswith('|'):
+                return {}
+        if tier is None:
+            return {}
+
+        rows: list[list[str]] = []
+        for ln in lines[tier + 1 :]:
+            s = ln.strip()
+            if not s.startswith('|'):
+                if rows:
+                    break  # table ended
+                if s in self._TIER_LABELS:
+                    return {}  # reached the next tier without finding a table
+                continue  # prose and the shared heading, before the table
+            cells = self._cells(s)
+            if cells is None:
+                continue
+            rows.append(cells)
+        if len(rows) < 2:
+            return {}
+
+        header = [c.lower() for c in rows[0]]
+        # Exact names, not substrings: 'cached input' contains 'input', and a
+        # renamed column must yield nothing rather than the neighbouring price.
+        try:
+            c_in = header.index('input')
+            c_cached = header.index('cached input')
+            c_out = header.index('output')
+            c_modality = header.index('modality')
+        except ValueError:
+            return {}
+
+        out: dict[str, Price] = {}
+        for r in rows[1:]:
+            if len(r) <= max(c_in, c_out, c_cached, c_modality) or not r[0]:
+                continue
+            if r[c_modality].lower() != 'image':
+                continue
+            inp, outp = dollars(r[c_in]), dollars(r[c_out])
+            if inp is None or outp is None:
+                continue
+            out.setdefault(
+                r[0],
+                Price(input=inp, output=outp, cache_read=dollars(r[c_cached])),
             )
         return out
 

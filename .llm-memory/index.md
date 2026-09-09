@@ -23,6 +23,9 @@ user has supplied — the agent NEVER writes into raw/.
   section; qualify tables by shape, and when a heading anchor is still right
 - [[a-money-cell-can-lie-about-its-unit]] — struck-through list prices and
   `$0.039 per image` under a per-1M-token header; why neither guard sees them
+- [[image-models-record-the-image-modality-row]] — an image model publishes a
+  rate per modality; why the book takes the published Image row and not the
+  text-in/image-out blend a generation call actually pays
 
 ## alerting & exit codes
 - [[alert-tiers-are-not-data-tiers]] — watched vs background drift, `watch.toml`,
