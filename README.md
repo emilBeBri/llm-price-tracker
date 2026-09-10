@@ -8,9 +8,9 @@ uv sync --extra fetch
 uv run llm-price-tracker check                       # fetch everything, diff the book
 uv run llm-price-tracker check --all                 # …and alert on every model, not just watched ones
 uv run llm-price-tracker refresh --write             # fold live prices in
-uv run llm-price-tracker show gpt-5                   # offline lookup
-uv run llm-price-tracker relative deepseek-v4-flash  # compare every model to a reference
-uv run llm-price-tracker relative fzf                 # interactively choose two models
+uv run llm-price-tracker show gpt-5                  # offline lookup
+uv run llm-price-tracker relative deepseek-flash     # compare every model to a reference
+uv run llm-price-tracker relative fzf                # interactively choose two models
 ```
 
 `relative REFERENCE` lists every standard-tier model, sorted by input rate, with
