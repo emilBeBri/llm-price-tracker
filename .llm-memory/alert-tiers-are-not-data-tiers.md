@@ -44,6 +44,19 @@ version — `gpt-oss-120b` reads as gpt 120. That is why `exclude_ids` exists.
 Nothing in the book hits it today; the list ships empty with the hazard
 documented.
 
+The mirror shape bit on 2026-09-10: an id with **no version at all**. DeepSeek
+shipped V4.1-Flash as `deepseek-flash`, not `deepseek-v4.1-flash`, so
+`parse_version` returns `()`, `() >= (4,)` is false, and the vendor's current
+flagship demoted itself to background the day it launched — a launch-day 32%
+input cut reported at exit 0. Nothing is wrong with the rule; a versionless id
+simply carries no version to threshold. The fix is the same escape hatch as
+`gpt-image-2.5-*`, in the other direction: name it in `ids`. Watch for this
+whenever a vendor renames a model to drop its number — the alert quietly stops
+without any code changing, and only a `--all` audit shows it.
+
+Note this is a *demotion*, never a data loss: `refresh` folded the new row in
+correctly regardless, per the split above.
+
 ## Failure modes deliberately made loud
 
 - **A policy matching nothing is fatal**, checked at load. It would silence

@@ -28,7 +28,13 @@
 # threshold. This is the mirror image of exclude_ids below — there a number is
 # not a version, here it is a version of a different product. Narrow on
 # purpose: gpt-image-2 and the 1.x line stay background.
-ids = ["gpt-image-2.5-*"]
+#
+# deepseek-flash is here because DeepSeek dropped the version from the id on
+# 2026-09-10 (V4.1-Flash ships as `deepseek-flash`, not `deepseek-v4.1-flash`).
+# The family rule below parses a version out of the id and finds none, so the
+# vendor's current flagship silently demoted itself to background the day it
+# launched. Watch it by name until the id carries a number again.
+ids = ["gpt-image-2.5-*", "deepseek-flash"]
 
 # Escape hatch for ids whose leading number is not a version. `gpt-oss-120b`
 # parses as gpt 120 and would clear every threshold; nothing in the book hits

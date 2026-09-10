@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-09",
+  "updated_at": "2026-09-10",
   "models": {
     "babbage-002": {
       "id": "babbage-002",
@@ -323,19 +323,63 @@
         "openai"
       ]
     },
+    "deepseek-flash": {
+      "id": "deepseek-flash",
+      "vendor": "deepseek",
+      "tiers": {
+        "standard": {
+          "input": 0.15,
+          "output": 0.6,
+          "cache_read": 0.003,
+          "effective_from": "2026-09-10",
+          "peak": {
+            "input": 0.3,
+            "output": 1.2,
+            "cache_read": 0.006
+          },
+          "peak_windows": [
+            {
+              "start": "01:00",
+              "end": "04:00",
+              "days": [
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
+            },
+            {
+              "start": "06:00",
+              "end": "10:00",
+              "days": [
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
+            }
+          ]
+        }
+      },
+      "sources": [
+        "deepseek"
+      ]
+    },
     "deepseek-v4-flash": {
       "id": "deepseek-v4-flash",
       "vendor": "deepseek",
       "tiers": {
         "standard": {
-          "input": 0.22,
-          "output": 0.66,
-          "cache_read": 0.007,
-          "effective_from": "2026-08-18",
+          "input": 0.15,
+          "output": 0.6,
+          "cache_read": 0.003,
+          "effective_from": "2026-09-10",
           "peak": {
-            "input": 0.44,
-            "output": 1.32,
-            "cache_read": 0.014
+            "input": 0.3,
+            "output": 1.2,
+            "cache_read": 0.006
           },
           "peak_windows": [
             {
@@ -368,6 +412,7 @@
         "llm-prices.com",
         "openrouter"
       ],
+      "note": "Retired 2026-09-10. The id still resolves, served by V4.1-Flash and billed at Flash rates, so this row mirrors deepseek-flash. No vendor page lists the id any more.",
       "history": {
         "standard": [
           {
@@ -375,6 +420,41 @@
             "output": 0.28,
             "cache_read": 0.0028,
             "effective_from": "2026-08-01"
+          },
+          {
+            "input": 0.22,
+            "output": 0.66,
+            "cache_read": 0.007,
+            "effective_from": "2026-08-18",
+            "peak": {
+              "input": 0.44,
+              "output": 1.32,
+              "cache_read": 0.014
+            },
+            "peak_windows": [
+              {
+                "start": "01:00",
+                "end": "04:00",
+                "days": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ]
+              },
+              {
+                "start": "06:00",
+                "end": "10:00",
+                "days": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ]
+              }
+            ]
           }
         ]
       }
@@ -384,14 +464,14 @@
       "vendor": "deepseek",
       "tiers": {
         "standard": {
-          "input": 0.22,
-          "output": 0.66,
-          "cache_read": 0.007,
-          "effective_from": "2026-09-03",
+          "input": 0.15,
+          "output": 0.6,
+          "cache_read": 0.003,
+          "effective_from": "2026-09-10",
           "peak": {
-            "input": 0.44,
-            "output": 1.32,
-            "cache_read": 0.014
+            "input": 0.3,
+            "output": 1.2,
+            "cache_read": 0.006
           },
           "peak_windows": [
             {
@@ -422,7 +502,47 @@
       "sources": [
         "deepseek",
         "openrouter"
-      ]
+      ],
+      "note": "Retired 2026-09-10. The id still resolves, served by V4.1-Flash and billed at Flash rates, so this row mirrors deepseek-flash. No vendor page lists the id any more.",
+      "history": {
+        "standard": [
+          {
+            "input": 0.22,
+            "output": 0.66,
+            "cache_read": 0.007,
+            "effective_from": "2026-09-03",
+            "peak": {
+              "input": 0.44,
+              "output": 1.32,
+              "cache_read": 0.014
+            },
+            "peak_windows": [
+              {
+                "start": "01:00",
+                "end": "04:00",
+                "days": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ]
+              },
+              {
+                "start": "06:00",
+                "end": "10:00",
+                "days": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     "deepseek-v4-pro": {
       "id": "deepseek-v4-pro",
@@ -469,6 +589,7 @@
         "llm-prices.com",
         "openrouter"
       ],
+      "note": "Routed to V4.1-Flash at Flash rates from 04:00 UTC 2026-09-14 until V4.1-Pro ships. The rates shown are the real V4-Pro card, correct until that moment.",
       "history": {
         "standard": [
           {
@@ -1244,17 +1365,27 @@
       "vendor": "zai",
       "tiers": {
         "standard": {
-          "input": 0.075,
-          "output": 0.25,
-          "cache_read": 0.015,
-          "effective_from": "2026-09-04"
+          "input": 0.15,
+          "output": 0.5,
+          "cache_read": 0.03,
+          "effective_from": "2026-09-10"
         }
       },
       "sources": [
         "openrouter",
         "zai"
       ],
-      "note": "50% promotional rate through 2026-09-09 24:00 UTC+8; RISES to 0.15/0.50 (cache 0.03) after"
+      "note": "50% promotional rate through 2026-09-09 24:00 UTC+8; RISES to 0.15/0.50 (cache 0.03) after",
+      "history": {
+        "standard": [
+          {
+            "input": 0.075,
+            "output": 0.25,
+            "cache_read": 0.015,
+            "effective_from": "2026-09-04"
+          }
+        ]
+      }
     },
     "glm-ocr": {
       "id": "glm-ocr",

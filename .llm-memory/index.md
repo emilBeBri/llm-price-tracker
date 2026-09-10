@@ -17,6 +17,9 @@ user has supplied — the agent NEVER writes into raw/.
 - [[peak-windows-carry-a-weekday-restriction]] — DeepSeek's Mon-Fri qualifier
   read past the zone; `TimeWindow.days`, and why an unreadable one drops the
   window instead of defaulting to every day
+- [[retired-ids-that-still-bill]] — a retired id whose name still resolves and
+  bills; mirror the row + keep history, why `alias_of` was rejected, and the
+  re-mirror queue hiding in `check`'s unmentioned-rows counter
 
 ## parsing vendor pages
 - [[parse-the-table-not-the-heading]] — z.ai moved its flagships into a new

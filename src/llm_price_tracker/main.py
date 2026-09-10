@@ -379,7 +379,12 @@ def show(
     for k, entry in rows.items():
         p = entry.price_at(when) if when else entry.tiers.get(STANDARD)
         table.add_row(
-            k,
+            # A starred id marks a row you cannot read at face value -- a
+            # retired id that still bills, a reroute with a date on it. The
+            # note itself goes under the table, not in a column: it is a
+            # sentence, and a prose column collapses the eight numeric ones
+            # to nothing on any terminal narrower than very wide.
+            f'{k} *' if entry.note else k,
             entry.vendor,
             _money(p.input) if p else '—',
             _money(p.output) if p else '—',
@@ -388,6 +393,9 @@ def show(
             ', '.join(entry.sources),
         )
     console.print(table)
+    for k, entry in rows.items():
+        if entry.note:
+            console.print(f'[yellow]* {k}[/] — {entry.note}')
     console.print(f'{len(rows)} of {len(book.models)} model(s)')
 
 
