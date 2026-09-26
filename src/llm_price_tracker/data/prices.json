@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-10",
+  "updated_at": "2026-09-26",
   "models": {
     "babbage-002": {
       "id": "babbage-002",
@@ -243,6 +243,23 @@
         "anthropic"
       ]
     },
+    "claude-opus-5.5": {
+      "id": "claude-opus-5.5",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 4.0,
+          "output": 20.0,
+          "cache_read": 0.2,
+          "cache_write": 5.0,
+          "effective_from": "2026-09-26"
+        }
+      },
+      "sources": [
+        "anthropic",
+        "openrouter"
+      ]
+    },
     "claude-sonnet-4": {
       "id": "claude-sonnet-4",
       "vendor": "anthropic",
@@ -331,41 +348,51 @@
           "input": 0.15,
           "output": 0.6,
           "cache_read": 0.003,
-          "effective_from": "2026-09-10",
-          "peak": {
-            "input": 0.3,
-            "output": 1.2,
-            "cache_read": 0.006
-          },
-          "peak_windows": [
-            {
-              "start": "01:00",
-              "end": "04:00",
-              "days": [
-                1,
-                2,
-                3,
-                4,
-                5
-              ]
-            },
-            {
-              "start": "06:00",
-              "end": "10:00",
-              "days": [
-                1,
-                2,
-                3,
-                4,
-                5
-              ]
-            }
-          ]
+          "effective_from": "2026-09-26"
         }
       },
       "sources": [
         "deepseek"
-      ]
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 0.15,
+            "output": 0.6,
+            "cache_read": 0.003,
+            "effective_from": "2026-09-10",
+            "peak": {
+              "input": 0.3,
+              "output": 1.2,
+              "cache_read": 0.006
+            },
+            "peak_windows": [
+              {
+                "start": "01:00",
+                "end": "04:00",
+                "days": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ]
+              },
+              {
+                "start": "06:00",
+                "end": "10:00",
+                "days": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ]
+              }
+            ]
+          }
+        ]
+      }
     },
     "deepseek-v4-flash": {
       "id": "deepseek-v4-flash",
@@ -552,36 +579,7 @@
           "input": 0.66,
           "output": 1.98,
           "cache_read": 0.022,
-          "effective_from": "2026-08-18",
-          "peak": {
-            "input": 1.32,
-            "output": 3.96,
-            "cache_read": 0.044
-          },
-          "peak_windows": [
-            {
-              "start": "01:00",
-              "end": "04:00",
-              "days": [
-                1,
-                2,
-                3,
-                4,
-                5
-              ]
-            },
-            {
-              "start": "06:00",
-              "end": "10:00",
-              "days": [
-                1,
-                2,
-                3,
-                4,
-                5
-              ]
-            }
-          ]
+          "effective_from": "2026-09-26"
         }
       },
       "sources": [
@@ -597,6 +595,41 @@
             "output": 0.87,
             "cache_read": 0.003625,
             "effective_from": "2026-08-01"
+          },
+          {
+            "input": 0.66,
+            "output": 1.98,
+            "cache_read": 0.022,
+            "effective_from": "2026-08-18",
+            "peak": {
+              "input": 1.32,
+              "output": 3.96,
+              "cache_read": 0.044
+            },
+            "peak_windows": [
+              {
+                "start": "01:00",
+                "end": "04:00",
+                "days": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ]
+              },
+              {
+                "start": "06:00",
+                "end": "10:00",
+                "days": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ]
+              }
+            ]
           }
         ]
       }
@@ -1020,6 +1053,50 @@
       ],
       "note": "introductory rate through 2026-12-31; RISES to 1.50/7.50 on 2027-01-01"
     },
+    "gemini-3.8-flash-lite-tts": {
+      "id": "gemini-3.8-flash-lite-tts",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.5,
+          "output": 6.0,
+          "cache_read": 0.125,
+          "effective_from": "2026-09-26"
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-3.8-flash-tts": {
+      "id": "gemini-3.8-flash-tts",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.5,
+          "output": 9.0,
+          "cache_read": 0.125,
+          "effective_from": "2026-09-26"
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
+    "gemini-3.8-live": {
+      "id": "gemini-3.8-live",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 0.75,
+          "output": 4.5,
+          "effective_from": "2026-09-26"
+        }
+      },
+      "sources": [
+        "google"
+      ]
+    },
     "gemini-omni-1.1-flash": {
       "id": "gemini-omni-1.1-flash",
       "vendor": "google",
@@ -1386,6 +1463,22 @@
           }
         ]
       }
+    },
+    "glm-5.3-flashx": {
+      "id": "glm-5.3-flashx",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 0.37,
+          "output": 1.25,
+          "cache_read": 0.075,
+          "effective_from": "2026-09-26"
+        }
+      },
+      "sources": [
+        "openrouter",
+        "zai"
+      ]
     },
     "glm-ocr": {
       "id": "glm-ocr",
@@ -1860,6 +1953,42 @@
       },
       "sources": [
         "openai"
+      ]
+    },
+    "gpt-6-luna": {
+      "id": "gpt-6-luna",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 0.1,
+          "output": 0.5,
+          "cache_read": 0.01,
+          "cache_write": 0.125,
+          "effective_from": "2026-09-26"
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai",
+        "openrouter"
+      ]
+    },
+    "gpt-6-sol": {
+      "id": "gpt-6-sol",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 10.0,
+          "cache_read": 0.2,
+          "cache_write": 2.5,
+          "effective_from": "2026-09-26"
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai",
+        "openrouter"
       ]
     },
     "gpt-image-1": {
