@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-26",
+  "updated_at": "2026-10-16",
   "models": {
     "babbage-002": {
       "id": "babbage-002",
@@ -95,6 +95,24 @@
       },
       "sources": [
         "anthropic"
+      ]
+    },
+    "claude-haiku-5.5": {
+      "id": "claude-haiku-5.5",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 0.1,
+          "output": 0.5,
+          "cache_read": 0.01,
+          "cache_write": 0.125,
+          "effective_from": "2026-10-16"
+        }
+      },
+      "sources": [
+        "anthropic",
+        "llm-prices.com",
+        "openrouter"
       ]
     },
     "claude-mythos-5": {
@@ -324,6 +342,24 @@
       "sources": [
         "anthropic",
         "llm-prices.com"
+      ]
+    },
+    "claude-sonnet-5.5": {
+      "id": "claude-sonnet-5.5",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 10.0,
+          "cache_read": 0.1,
+          "cache_write": 2.5,
+          "effective_from": "2026-10-16"
+        }
+      },
+      "sources": [
+        "anthropic",
+        "llm-prices.com",
+        "openrouter"
       ]
     },
     "davinci-002": {
@@ -1095,6 +1131,39 @@
       },
       "sources": [
         "google"
+      ]
+    },
+    "gemini-4-argon": {
+      "id": "gemini-4-argon",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 10.0,
+          "cache_read": 0.1,
+          "effective_from": "2026-10-16"
+        }
+      },
+      "sources": [
+        "google",
+        "llm-prices.com",
+        "openrouter"
+      ],
+      "note": "No rate was published anywhere readable before 2026-10-16; a pre-2026-10-16 call therefore has no recorded rate, and price_at() extrapolates this row for it."
+    },
+    "gemini-nano-banana-2.1": {
+      "id": "gemini-nano-banana-2.1",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 1.5,
+          "output": 7.5,
+          "effective_from": "2026-10-16"
+        }
+      },
+      "sources": [
+        "google",
+        "openrouter"
       ]
     },
     "gemini-omni-1.1-flash": {
@@ -1983,6 +2052,24 @@
           "cache_read": 0.2,
           "cache_write": 2.5,
           "effective_from": "2026-09-26"
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai",
+        "openrouter"
+      ]
+    },
+    "gpt-6.1-sol": {
+      "id": "gpt-6.1-sol",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 10.0,
+          "cache_read": 0.1,
+          "cache_write": 2.5,
+          "effective_from": "2026-10-16"
         }
       },
       "sources": [
