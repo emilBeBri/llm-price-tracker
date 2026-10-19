@@ -430,6 +430,60 @@ def test_moonshot_requires_the_doctable_not_merely_dollar_amounts():
     assert MoonshotSource().parse('<p>Kimi K3 is 50% off from $99.</p>') == {}
 
 
+# The 2026-10-16 rewrite: K3 moved to its own table with cache-WRITE tiers and
+# a single 'Input Price', while the K2 shape below it still splits input by
+# cache outcome. The old selector only knew the second shape, so it parsed the
+# K2 table and silently dropped the flagship — `check` said "parsed 3 rows but
+# none match ['kimi-k3']", which is the good version of this bug.
+MOONSHOT_REWRITTEN_MD = r"""
+<DocTable
+  columns={[
+{ title: "Model", width: "12%" },
+{ title: "Unit", width: "10%" },
+{ title: "Cache Write Price (TTL 5min)", width: "13%" },
+{ title: "Cache Write Price (TTL 1h)", width: "13%" },
+{ title: "Cached Input Price", width: "13%" },
+{ title: "Input Price", width: "13%" },
+{ title: "Output Price", width: "10%" },
+{ title: "Context Window", width: "16%" },
+]}
+  rows={[
+["kimi-k3", "1M tokens", <>{"$"}3.00</>, <>{"$"}6.00</>, <>{"$"}0.30</>, <>{"$"}3.00</>, <>{"$"}15.00</>, "1,048,576 tokens"],
+]}
+/>
+<DocTable
+  columns={[
+{ title: "Model", width: "24%" },
+{ title: "Unit", width: "12%" },
+{ title: "Input Price (Cache Hit)", width: "16%" },
+{ title: "Input Price (Cache Miss)", width: "16%" },
+{ title: "Output Price", width: "14%" },
+{ title: "Context Window", width: "18%" },
+]}
+  rows={[
+["kimi-k2.6", "1M tokens", <>{"$"}0.16</>, <>{"$"}0.95</>, <>{"$"}4.00</>, "262,144 tokens"],
+]}
+/>
+"""
+
+
+def test_moonshot_reads_the_k3_shape_with_cache_write_tiers():
+    k3 = MoonshotSource().parse(MOONSHOT_REWRITTEN_MD)['kimi-k3']
+    # Input is the plain 'Input Price' column, NOT the adjacent 'Cached Input
+    # Price' — taking the first header containing 'input' and 'price' would
+    # bill every fresh token at the cache-hit rate, a silent 10x under-billing.
+    assert (k3.input, k3.output, k3.cache_read) == (3.0, 15.0, 0.30)
+    # The 5-minute write tier is what the page says applies by default; the 1h
+    # tier is a different TTL the book has no field for.
+    assert k3.cache_write == 3.0
+
+
+def test_moonshot_reads_both_generations_from_the_same_page():
+    prices = MoonshotSource().parse(MOONSHOT_REWRITTEN_MD)
+    assert set(prices) == {'kimi-k3', 'kimi-k2.6'}
+    assert prices['kimi-k2.6'].input == 0.95
+
+
 # --------------------------------------------------------------------------- #
 # Z.ai: pricing moved off the API-reference introduction page to a dedicated
 # pricing page; the source reads its markdown rendering. Three real traps in

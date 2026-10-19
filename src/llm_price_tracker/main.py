@@ -68,21 +68,23 @@ def _price_cell(p: Price | None) -> str:
 
 
 def _cache_note(old: Price | None, new: Price | None) -> str:
-    """' ·cache $0.125→—' when a cache rate moved and the in/out columns didn't.
+    """' ·cache $0.125→—' for a cache rate that moved while in/out did not.
 
     Without it that row renders 'same -> same' — a false positive, which is the
     fastest way to teach a reader to skim a table of real ones.
     """
-    before = old.cache_read if old else None
-    after = new.cache_read if new else None
-    if before == after:
-        return ''
     if old is not None and new is not None and (old.input, old.output) != (
         new.input,
         new.output,
     ):
         return ''  # the rate columns already show a change
-    return f' ·cache {_money(before)}→{_money(after)}'
+    notes = []
+    for field, label in (('cache_read', 'cache'), ('cache_write', 'cache-write')):
+        before = getattr(old, field, None) if old else None
+        after = getattr(new, field, None) if new else None
+        if before != after:
+            notes.append(f'{label} {_money(before)}→{_money(after)}')
+    return f' ·{", ".join(notes)}' if notes else ''
 
 
 def _announce_cell(p: Price | None) -> str:
@@ -375,7 +377,9 @@ def refresh(
 
     for d in changed:
         old = _price_cell(d.old)
-        new = _price_cell(d.new) + _announce_cell(d.new)
+        new = (
+            _price_cell(d.new) + _announce_cell(d.new) + _cache_note(d.old, d.new)
+        )
         console.print(f'  {d.drift.value:8} {d.model_id:34} {old:>18} -> {new}')
 
     if not changed:

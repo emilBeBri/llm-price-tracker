@@ -75,6 +75,39 @@ failure at the source. Left pinned, it would fire falsely on the day z.ai
 retires GLM-5.2 from the page, and a guard that cries wolf is
 [[alert-tiers-are-not-data-tiers]] all over again.
 
+## A fourth case: one page, two table shapes (2026-10-19)
+
+Moonshot rewrote its pricing page on 2026-10-16 and `check` reported
+`parsed 3 rows but none match ['kimi-k3']` — the same shape as the z.ai break:
+plausible rows, correct prices, the flagship missing. This time the subject
+did not move; the **schema did**. K3 got its own table:
+
+```
+Model | Unit | Cache Write (5min) | Cache Write (1h) | Cached Input | Input | Output | Context
+```
+
+while the K2 tables below it kept the older split-by-cache-outcome columns
+(`Input Price (Cache Hit)` / `(Cache Miss)`). `MoonshotSource` only knew the
+second shape, so it qualified the K2 table, parsed three real rows, and
+skipped the flagship. `expect` caught it — which is the argument for pinning
+the fragment on the current flagship even though a pinned fragment cries wolf
+when that model retires.
+
+Two lessons the shape rule did not already carry:
+
+- **A source may have to know every generation's schema at once.** "Qualify
+  tables by shape" silently means "…by the shape you were written for", and a
+  vendor migrating one product line does not migrate the rest. Both are read
+  now, and a new `_col(header, needle, without=...)` exists because the K3
+  header puts `Cached Input Price` immediately before `Input Price`: a plain
+  substring search matches the cached column first and records every fresh
+  token at the cache-hit rate, a silent 10x under-billing that no guardrail
+  sees. The exclusion is the load-bearing part, not the extra shape.
+- **A second shape brings new facts, not just the old ones back.** K3
+  publishes cache-write tiers, which the book had no value for; the 5-minute
+  tier is recorded as `cache_write` because the page says that is what applies
+  when no TTL is requested. The 1h tier has no field and is not guessed at.
+
 See [[a-money-cell-can-lie-about-its-unit]] for the other z.ai trap found the
 same day (the struck-through promo price), and for Google's version of "the
 cell is not what the header says it is".

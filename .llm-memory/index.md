@@ -32,8 +32,6 @@ user has supplied — the agent NEVER writes into raw/.
 - [[image-models-record-the-image-modality-row]] — an image model publishes a
   rate per modality; why the book takes the published Image row and not the
   text-in/image-out blend a generation call actually pays
-- [[moonshot-source-lost-kimi-k3]] — the moonshot page rewrite of 2026-10-16:
-  three rows parsed, kimi-k3 missing, and what stays stale while it is broken
 
 ## alerting & exit codes
 - [[alert-tiers-are-not-data-tiers]] — watched vs background drift, `watch.toml`,

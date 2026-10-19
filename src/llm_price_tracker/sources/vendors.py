@@ -790,6 +790,16 @@ class MoonshotSource(Source):
     The Chinese platform lists CNY rates; the USD table here is the rate
     OpenRouter-facing consumers pay, and the book's unit is USD. Never
     convert the CNY page through a live exchange rate.
+
+    Two table shapes, one per generation, and the 2026-10-16 page carries both:
+    K2 splits the input rate by cache outcome ('Input Price (Cache Hit)' /
+    '(Cache Miss)'), while K3 publishes a single 'Input Price' plus two
+    cache-WRITE tiers. Matching only the K2 shape read the K2 table and skipped
+    the K3 one, so `check` reported three rows parsed and `kimi-k3` gone —
+    exactly the wrong-rows failure a "parsed 0 models" guardrail cannot see.
+    Of the two write tiers only the 5-minute one is recorded: the page says
+    that is what applies when no TTL is requested, and the book's `cache_write`
+    is one number.
     """
 
     name = 'moonshot'
@@ -809,10 +819,19 @@ class MoonshotSource(Source):
         out: dict[str, Price] = {}
         for block in self._DOCTABLE.findall(body):
             header = [t.lower() for t in self._TITLE.findall(block)]
-            c_model = _column_index(header, 'model')
-            c_hit = _column_index(header, 'cache hit')
-            c_miss = _column_index(header, 'cache miss')
-            c_out = _column_index(header, 'output')
+            c_model = self._col(header, 'model')
+            c_out = self._col(header, 'output', 'price')
+            c_hit = self._col(header, 'cache hit')
+            if c_hit is None:
+                c_hit = self._col(header, 'cached', 'input')
+            c_miss = self._col(header, 'cache miss')
+            if c_miss is None:
+                # K3 shape. `cache` has to be excluded: 'Cached Input Price'
+                # also contains 'input' and 'price' and sits BEFORE the real
+                # column, so a plain substring search would record every fresh
+                # token at the cache-hit rate — a silent 10x under-billing.
+                c_miss = self._col(header, 'input', 'price', without=('cache',))
+            c_write = self._col(header, 'cache write', 'ttl 5')
             if c_model is None or c_miss is None or c_out is None:
                 continue
 
@@ -836,8 +855,27 @@ class MoonshotSource(Source):
                         if c_hit is not None and c_hit < len(cells)
                         else None
                     ),
+                    cache_write=(
+                        self._money(cells[c_write])
+                        if c_write is not None and c_write < len(cells)
+                        else None
+                    ),
                 )
         return out
+
+    @staticmethod
+    def _col(
+        header: list[str], *needles: str, without: tuple[str, ...] = ()
+    ) -> int | None:
+        """First column whose header contains every needle and no `without`.
+
+        `_column_index` cannot express 'input price, but not cached input
+        price', and in the K3 table the two are adjacent.
+        """
+        for i, h in enumerate(header):
+            if all(n in h for n in needles) and not any(w in h for w in without):
+                return i
+        return None
 
     def _money(self, cell: str) -> float | None:
         return dollars(self._FRAGMENT.sub(r'$\1', cell.strip()))
