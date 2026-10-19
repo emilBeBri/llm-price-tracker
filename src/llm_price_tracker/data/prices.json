@@ -2247,6 +2247,53 @@
       ],
       "note": "Image-modality rate, as published. Text input on the same model is $5.00/1M ($1.25 cached); it emits no text output."
     },
+    "kimi-k2.6": {
+      "id": "kimi-k2.6",
+      "vendor": "moonshot",
+      "tiers": {
+        "standard": {
+          "input": 0.95,
+          "output": 4.0,
+          "cache_read": 0.16,
+          "effective_from": "2026-10-19"
+        }
+      },
+      "sources": [
+        "moonshot",
+        "openrouter"
+      ]
+    },
+    "kimi-k2.7-code": {
+      "id": "kimi-k2.7-code",
+      "vendor": "moonshot",
+      "tiers": {
+        "standard": {
+          "input": 0.95,
+          "output": 4.0,
+          "cache_read": 0.19,
+          "effective_from": "2026-10-19"
+        }
+      },
+      "sources": [
+        "moonshot",
+        "openrouter"
+      ]
+    },
+    "kimi-k2.7-code-highspeed": {
+      "id": "kimi-k2.7-code-highspeed",
+      "vendor": "moonshot",
+      "tiers": {
+        "standard": {
+          "input": 1.9,
+          "output": 8.0,
+          "cache_read": 0.38,
+          "effective_from": "2026-10-19"
+        }
+      },
+      "sources": [
+        "moonshot"
+      ]
+    },
     "kimi-k3": {
       "id": "kimi-k3",
       "vendor": "moonshot",
@@ -2255,13 +2302,24 @@
           "input": 3.0,
           "output": 15.0,
           "cache_read": 0.3,
-          "effective_from": "2026-08-18"
+          "cache_write": 3.0,
+          "effective_from": "2026-10-19"
         }
       },
       "sources": [
         "moonshot",
         "openrouter"
-      ]
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 3.0,
+            "output": 15.0,
+            "cache_read": 0.3,
+            "effective_from": "2026-08-18"
+          }
+        ]
+      }
     },
     "o1": {
       "id": "o1",
