@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-16",
+  "updated_at": "2026-10-19",
   "models": {
     "babbage-002": {
       "id": "babbage-002",
@@ -1033,7 +1033,15 @@
           "input": 0.75,
           "output": 3.75,
           "cache_read": 0.075,
-          "effective_from": "2026-08-18"
+          "effective_from": "2026-08-18",
+          "scheduled": [
+            {
+              "input": 1.5,
+              "output": 7.5,
+              "cache_read": 0.15,
+              "effective_from": "2027-01-01"
+            }
+          ]
         }
       },
       "sources": [
@@ -1079,7 +1087,15 @@
           "input": 0.75,
           "output": 3.75,
           "cache_read": 0.075,
-          "effective_from": "2026-09-02"
+          "effective_from": "2026-09-02",
+          "scheduled": [
+            {
+              "input": 1.5,
+              "output": 7.5,
+              "cache_read": 0.15,
+              "effective_from": "2027-01-01"
+            }
+          ]
         }
       },
       "sources": [
@@ -1096,13 +1112,29 @@
         "standard": {
           "input": 0.5,
           "output": 6.0,
-          "cache_read": 0.125,
-          "effective_from": "2026-09-26"
+          "effective_from": "2026-10-19",
+          "scheduled": [
+            {
+              "input": 1.0,
+              "output": 12.0,
+              "effective_from": "2027-01-01"
+            }
+          ]
         }
       },
       "sources": [
         "google"
-      ]
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 0.5,
+            "output": 6.0,
+            "cache_read": 0.125,
+            "effective_from": "2026-09-26"
+          }
+        ]
+      }
     },
     "gemini-3.8-flash-tts": {
       "id": "gemini-3.8-flash-tts",
@@ -1111,13 +1143,29 @@
         "standard": {
           "input": 0.5,
           "output": 9.0,
-          "cache_read": 0.125,
-          "effective_from": "2026-09-26"
+          "effective_from": "2026-10-19",
+          "scheduled": [
+            {
+              "input": 1.0,
+              "output": 18.0,
+              "effective_from": "2027-01-01"
+            }
+          ]
         }
       },
       "sources": [
         "google"
-      ]
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 0.5,
+            "output": 9.0,
+            "cache_read": 0.125,
+            "effective_from": "2026-09-26"
+          }
+        ]
+      }
     },
     "gemini-3.8-live": {
       "id": "gemini-3.8-live",
@@ -1141,7 +1189,15 @@
           "input": 2.0,
           "output": 10.0,
           "cache_read": 0.1,
-          "effective_from": "2026-10-16"
+          "effective_from": "2026-10-16",
+          "scheduled": [
+            {
+              "input": 4.0,
+              "output": 20.0,
+              "cache_read": 0.2,
+              "effective_from": "2026-12-01"
+            }
+          ]
         }
       },
       "sources": [
@@ -1216,7 +1272,15 @@
           "input": 1.0,
           "output": 5.0,
           "cache_read": 0.1,
-          "effective_from": "2026-09-09"
+          "effective_from": "2026-09-09",
+          "scheduled": [
+            {
+              "input": 2.0,
+              "output": 10.0,
+              "cache_read": 0.2,
+              "effective_from": "2027-01-01"
+            }
+          ]
         }
       },
       "sources": [
@@ -1240,7 +1304,14 @@
         "standard": {
           "input": 1.0,
           "output": 5.0,
-          "effective_from": "2026-09-09"
+          "effective_from": "2026-09-09",
+          "scheduled": [
+            {
+              "input": 2.0,
+              "output": 10.0,
+              "effective_from": "2027-01-01"
+            }
+          ]
         }
       },
       "sources": [
