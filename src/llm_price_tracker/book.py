@@ -45,12 +45,20 @@ def _implausible_rates(book: PriceBook) -> list[str]:
     bad: list[str] = []
     for model_id, entry in book.models.items():
         for tier, price in entry.tiers.items():
-            # The peak variant nests a full Price: a unit bug in IT must trip
-            # the gate too, or the factor-1e6 error walks in through the back
-            # door.
-            for suffix, variant in (('', price), ('.peak', price.peak)):
-                if variant is None:
-                    continue
+            # Every nested Price trips the gate, not just the tier's own rates:
+            # the peak variant and every announced future row too, or the
+            # factor-1e6 error walks in through a side door. A future row is
+            # read from the same cell as the current one and stored the same
+            # way — a '$4.00 per 1K tokens' promo would land as 0.004 or as
+            # 4,000,000, and only one of those is caught by not looking.
+            variants = [('', price)]
+            if price.peak is not None:
+                variants.append(('.peak', price.peak))
+            variants += [
+                (f'.scheduled[{i}]', future)
+                for i, future in enumerate(price.scheduled or [])
+            ]
+            for suffix, variant in variants:
                 for rate_field in ('input', 'output', 'cache_read', 'cache_write'):
                     value = getattr(variant, rate_field)
                     if value is not None and value > MAX_SANE_MTOK:

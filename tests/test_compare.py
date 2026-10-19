@@ -5,6 +5,8 @@ invented scenario. That is deliberate: these are the failures it exists to
 catch, so they are the ones that must not regress.
 """
 
+from datetime import UTC, datetime
+
 from llm_price_tracker.compare import (
     Agreement,
     Drift,
@@ -15,6 +17,10 @@ from llm_price_tracker.compare import (
 )
 from llm_price_tracker.models import STANDARD, ModelEntry, Price, PriceBook, TimeWindow
 from llm_price_tracker.sources.base import SourceResult
+
+
+def _day(text: str) -> datetime:
+    return datetime.fromisoformat(text).replace(tzinfo=UTC)
 
 
 def _res(source: str, prices: dict[str, Price], ok: bool = True) -> SourceResult:
@@ -294,3 +300,105 @@ def test_history_accumulates_across_successive_cuts():
         '2026-02-02',
         '2026-03-03',
     ]
+
+
+# --------------------------------------------------------------------------- #
+# Announced rates: a vendor publishing the change BEFORE it happens.
+# --------------------------------------------------------------------------- #
+ANNEX = Price(input=4.0, output=20.0, cache_read=0.20, effective_from='2026-12-01')
+
+
+def test_an_announcement_alone_is_not_a_price_change():
+    """The rate in force did not move, so this must not alert: a watched model
+    exiting 1 every day for six weeks because Google dated its promo is how you
+    learn to dismiss the one that matters. It is still a fact worth writing."""
+    book = _book('m', Price(input=2.0, output=10.0, effective_from='2026-10-16'))
+    verdicts = reconcile(
+        [_res('google', {'m': Price(input=2.0, output=10.0, scheduled=[ANNEX])})]
+    )
+    deltas = diff_book(book, verdicts)
+    assert deltas[0].drift is Drift.ANNOUNCED
+
+    entry = apply_deltas(book, deltas, updated_at='2026-10-19').models['m']
+    assert entry.tiers[STANDARD].input == 2.0
+    # Unchanged rates keep the date they were first observed on — restamping
+    # would walk today's start date forward on every refresh.
+    assert entry.tiers[STANDARD].effective_from == '2026-10-16'
+    assert entry.history == {}
+    assert [p.effective_from for p in entry.tiers[STANDARD].scheduled] == ['2026-12-01']
+
+
+def test_the_same_page_parsed_twice_is_not_drift():
+    book = _book('m', Price(input=2.0, output=10.0, scheduled=[ANNEX]))
+    verdicts = reconcile(
+        [_res('google', {'m': Price(input=2.0, output=10.0, scheduled=[ANNEX])})]
+    )
+    assert diff_book(book, verdicts)[0].drift is Drift.SAME
+
+
+def test_an_announced_rate_arriving_becomes_the_rate_in_force():
+    """The page that keeps publishing 'through November 30' after that date has
+    passed parses to the row already in the book, so no delta fires and nothing
+    would ever move it. `at=None` callers would go on paying a discount that
+    ended."""
+    book = _book(
+        'm',
+        Price(input=2.0, output=10.0, effective_from='2026-10-16', scheduled=[ANNEX]),
+    )
+    # price_at was ALREADY right for a dated query: the announced row is dated,
+    # so the date comparison picks it. This pass is the `at=None` half.
+    assert book.models['m'].price_at(_day('2026-12-05')).input == 4.0
+
+    verdicts = reconcile(
+        [_res('google', {'m': Price(input=2.0, output=10.0, scheduled=[ANNEX])})]
+    )
+    deltas = diff_book(book, verdicts)
+    assert deltas[0].drift is Drift.SAME
+
+    entry = apply_deltas(book, deltas, updated_at='2026-12-05').models['m']
+    assert entry.tiers[STANDARD].input == 4.0
+    # The vendor's own date, not the day we noticed: this is the one place a
+    # stamp is published rather than first-observed.
+    assert entry.tiers[STANDARD].effective_from == '2026-12-01'
+    assert entry.tiers[STANDARD].scheduled is None
+    assert [p.input for p in entry.history[STANDARD]] == [2.0]
+    # The superseded row is a rate, not a claim about a later one.
+    assert entry.history[STANDARD][0].scheduled is None
+
+
+def test_a_cache_rate_the_vendor_stopped_publishing_is_changed():
+    """Gemini's TTS rows lost their context-caching row from the page. The book
+    diff used to be lenient about that ('one source not publishing a cache rate
+    is not a disagreement'), which is right for CROSS-SOURCE comparison and
+    wrong for the book: keeping the retired figure charges a rate nobody
+    publishes any more, and it is higher than the input-rate fallback a missing
+    cache rate gets, so the silence costs money.
+
+    And it must classify as CHANGED, not ANNOUNCED — the delta that carries an
+    announcement must not smuggle a rate change in under a `no alert` label.
+    """
+    book = _book('tts', Price(input=0.5, output=9.0, cache_read=0.125))
+    verdicts = reconcile([_res('google', {'tts': Price(input=0.5, output=9.0)})])
+    deltas = diff_book(book, verdicts)
+    assert deltas[0].drift is Drift.CHANGED
+
+    entry = apply_deltas(book, deltas, updated_at='2026-10-19').models['tts']
+    assert entry.tiers[STANDARD].cache_read is None
+    assert [p.cache_read for p in entry.history[STANDARD]] == [0.125]
+
+
+def test_a_retracted_announcement_does_not_survive_a_refresh():
+    """Anthropic cancelled Sonnet 5's scheduled increase outright — the page
+    says so in as many words. Announcements are recomputed from the page every
+    run, so a withdrawn one disappears instead of predicting a phantom price."""
+    book = _book(
+        'm',
+        Price(input=2.0, output=10.0, effective_from='2026-10-16', scheduled=[ANNEX]),
+    )
+    verdicts = reconcile([_res('google', {'m': Price(input=2.0, output=10.0)})])
+    entry = apply_deltas(
+        book, diff_book(book, verdicts), updated_at='2026-10-20'
+    ).models['m']
+
+    assert entry.tiers[STANDARD].scheduled is None
+    assert [p.input for p in entry.rate_history()] == [2.0]

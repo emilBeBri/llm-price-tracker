@@ -446,6 +446,103 @@ def test_history_round_trips_through_save_and_load(historic_book):
     assert [p.input for p in rows] == [5.0, 3.0, 1.0]
 
 
+def test_an_announced_rate_prices_a_date_on_or_after_its_start(tmp_path):
+    """Google publishes the doubling six weeks early; a call made in December
+    must price at what December costs, without waiting for the page to flip."""
+    b = PriceBook(
+        updated_at='2026-10-19',
+        models={
+            'argon': ModelEntry(
+                id='argon',
+                vendor='google',
+                tiers={
+                    STANDARD: Price(
+                        input=2.0,
+                        output=10.0,
+                        cache_read=0.10,
+                        effective_from='2026-10-16',
+                        scheduled=[
+                            Price(
+                                input=4.0,
+                                output=20.0,
+                                cache_read=0.20,
+                                effective_from='2026-12-01',
+                            )
+                        ],
+                    )
+                },
+            )
+        },
+    )
+    path = tmp_path / 'prices.json'
+    save_book(b, path)
+    book = load_book(path)
+
+    assert get_price('argon', book=book, at=_day('2026-12-01')).input == 4.0
+    assert get_price('argon', book=book, at=_day('2026-11-30')).input == 2.0
+    # `at=None` stays the rate in force today: an announcement is not a
+    # pre-emptive rise, and a consumer that never asked about a date must not
+    # be billed tomorrow's price today.
+    assert get_price('argon', book=book).input == 2.0
+    assert [p.effective_from for p in book.get('argon').rate_history()] == [
+        '2026-10-16',
+        '2026-12-01',
+    ]
+
+
+def test_save_book_refuses_a_unit_explosion_inside_an_announced_row(tmp_path):
+    """The announced row is read from the same cell as the current one and
+    stored the same way, so the per-token/per-1M gate has to look at it too —
+    otherwise the factor-1e6 bug walks in through a future date."""
+    b = PriceBook(
+        updated_at='2026-10-19',
+        models={
+            'buggy': ModelEntry(
+                id='buggy',
+                vendor='google',
+                tiers={
+                    STANDARD: Price(
+                        input=2.0,
+                        output=10.0,
+                        scheduled=[Price(input=4_000_000.0, output=20.0)],
+                    )
+                },
+            )
+        },
+    )
+    with pytest.raises(ValueError, match='implausible'):
+        save_book(b, tmp_path / 'prices.json')
+
+
+def test_announced_rates_survive_the_json_round_trip_and_vanish_when_empty(tmp_path):
+    scheduled = Price(input=4.0, output=20.0, effective_from='2026-12-01')
+    b = PriceBook(
+        updated_at='2026-10-19',
+        models={
+            'with': ModelEntry(
+                id='with',
+                vendor='google',
+                tiers={STANDARD: Price(input=2.0, output=10.0, scheduled=[scheduled])},
+            ),
+            'without': ModelEntry(
+                id='without',
+                vendor='google',
+                tiers={STANDARD: Price(input=2.0, output=10.0)},
+            ),
+        },
+    )
+    path = tmp_path / 'prices.json'
+    save_book(b, path)
+    text = path.read_text()
+    assert 'scheduled' in text
+    again = load_book(path)
+    assert again.get('with').tiers[STANDARD].scheduled[0].input == 4.0
+    assert again.get('without').tiers[STANDARD].scheduled is None
+    # A book with no announcements must stay byte-identical to before the field
+    # existed — one `"scheduled": null` per row would be 128 lines of noise.
+    assert text.count('scheduled') == 1
+
+
 def test_book_without_history_serialises_without_the_key(tmp_path):
     """94 rows x an empty `history: {}` is noise in a file whose whole job is
     to be reviewed by a human."""

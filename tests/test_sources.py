@@ -169,6 +169,17 @@ def test_anthropic_takes_the_rate_in_force_not_the_future_one():
     assert prices['claude-sonnet-5'].cache_read == 0.20
 
 
+def test_anthropic_records_the_scheduled_row_it_used_to_drop():
+    """The page lists a dated rate cut twice: the row in force now and the row
+    that replaces it. The second is a vendor fact, and dropping it is why the
+    increase arrived as a surprise instead of a dated row."""
+    sonnet = AnthropicSource().parse(ANTHROPIC_MD)['claude-sonnet-5']
+    assert (sonnet.input, sonnet.output) == (2.0, 10.0)
+    assert [
+        (p.input, p.output, p.cache_read, p.effective_from) for p in sonnet.scheduled
+    ] == [(3.0, 15.0, 0.30, '2026-09-01')]
+
+
 def test_anthropic_maps_the_cache_columns():
     opus = AnthropicSource().parse(ANTHROPIC_MD)['claude-opus-5']
     assert (opus.input, opus.output) == (5.0, 25.0)
@@ -573,6 +584,64 @@ def test_google_keeps_the_token_rate_when_a_cell_carries_both_units():
     )
     price = GoogleSource().parse(both)['gemini-9-image']
     assert (price.input, price.output, price.cache_read) == (2.0, 12.0, 0.15)
+
+
+# --------------------------------------------------------------------------- #
+# Google, 2026-10-19: the whole lineup is a discount with a published end date.
+# Every rate cell reads "$2.00 through November 30, 2026. $4.00 starting
+# December 1, 2026." Taking the first amount recorded a six-week promo as a
+# standing price and threw the doubling away — the book would have had nothing
+# to say on the day eleven Gemini models doubled at once.
+# --------------------------------------------------------------------------- #
+GOOGLE_PROMO_HTML = """
+<h2 id="gemini-4-argon">Gemini 4 Argon</h2>
+<table class="pricing-table"><tbody>
+<tr><th></th><th>Free Tier</th><th>Paid Tier, per 1M tokens in USD</th></tr>
+<tr><td>Input price</td><td>Not available</td><td>$2.00 through November 30, 2026. $4.00 starting December 1, 2026.</td></tr>
+<tr><td>Output price (including thinking tokens)</td><td>Not available</td><td>$10.00 through November 30, 2026. $20.00 starting December 1, 2026.</td></tr>
+<tr><td>Context caching price</td><td>Not available</td><td>$0.10 through November 30, 2026. $0.20 starting December 1, 2026. Implicit caching only (explicit caching is not supported).</td></tr>
+</tbody></table>
+<h2 id="gemini-3.8-flash-tts">Gemini 3.8 Flash TTS</h2>
+<table class="pricing-table"><tbody>
+<tr><td>Input price</td><td>Not available</td><td>$0.50 (text) through December 31, 2026. $1.00 (text) starting January 1, 2027.</td></tr>
+<tr><td>Output price</td><td>Not available</td><td>$9.00 (audio) through December 31, 2026. $18.00 (audio) starting January 1, 2027. Equivalent to $0.00225 per 10s audio * through December 31, 2026.</td></tr>
+<tr><td>Context caching price</td><td>Not available</td><td>$0.50 / 1,000,000 tokens per hour (storage price) starting January 1, 2027.</td></tr>
+</tbody></table>
+"""
+
+
+def test_google_records_the_announced_rate_next_to_the_one_in_force():
+    argon = GoogleSource().parse(GOOGLE_PROMO_HTML)['gemini-4-argon']
+    # The rate in force today is the first amount, unchanged.
+    assert (argon.input, argon.output, argon.cache_read) == (2.0, 10.0, 0.10)
+    # And the announced row keeps the date the vendor published with it.
+    assert [(p.input, p.output, p.cache_read, p.effective_from) for p in argon.scheduled] == [
+        (4.0, 20.0, 0.20, '2026-12-01')
+    ]
+
+
+def test_google_does_not_read_a_storage_figure_as_the_announced_rate():
+    """'$0.50 / 1,000,000 tokens per hour' is cache storage, and the per-10s
+    audio figure is not a token rate either. The announcement is anchored on
+    'starting <date>', so neither can be mistaken for the next token price."""
+    tts = GoogleSource().parse(GOOGLE_PROMO_HTML)['gemini-3.8-flash-tts']
+    assert [(p.input, p.output, p.cache_read) for p in tts.scheduled] == [(1.0, 18.0, None)]
+
+
+def test_google_announced_row_needs_both_token_rates():
+    """Half an announced row is not a price: without input AND output there is
+    nothing to charge a call against."""
+    half = (
+        '<h2 id="gemini-9-partial">x</h2>'
+        '<table class="pricing-table"><tbody>'
+        '<tr><td>Input price</td><td>$2.00 through November 30, 2026. $4.00 '
+        'starting December 1, 2026.</td></tr>'
+        '<tr><td>Output price</td><td>$10.00</td></tr>'
+        '</tbody></table>'
+    )
+    price = GoogleSource().parse(half)['gemini-9-partial']
+    assert price.input == 2.0
+    assert price.scheduled is None
 
 
 # --------------------------------------------------------------------------- #

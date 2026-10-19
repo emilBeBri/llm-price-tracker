@@ -20,6 +20,9 @@ user has supplied — the agent NEVER writes into raw/.
 - [[retired-ids-that-still-bill]] — a retired id whose name still resolves and
   bills; mirror the row + keep history, why `alias_of` was rejected, and the
   re-mirror queue hiding in `check`'s unmentioned-rows counter
+- [[announced-rates-are-dated-facts]] — Promo cells carry a second, dated
+  amount; `Price.scheduled`, the `announced` drift class that must not alert,
+  promotion on arrival, and why a withdrawn announcement has to vanish
 
 ## parsing vendor pages
 - [[parse-the-table-not-the-heading]] — z.ai moved its flagships into a new
@@ -37,3 +40,4 @@ user has supplied — the agent NEVER writes into raw/.
   version parsing across vendor id shapes, why a broken source still wins
 
 # orphans
+

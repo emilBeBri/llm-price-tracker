@@ -46,6 +46,7 @@ class Drift(str, Enum):
     SAME = 'same'
     CHANGED = 'changed'
     NEW = 'new'
+    ANNOUNCED = 'announced'  # same rates, a new/changed not-yet-in-force one
     ABSENT = 'absent'  # in the book, no source mentions it this run
 
 
@@ -106,14 +107,27 @@ def _agree(a: Price, b: Price) -> bool:
 
 
 def _same(a: Price, b: Price) -> bool:
-    """Book-diff equality: strict on the time-of-day variant.
+    """Book-diff equality: fully strict. Also the history-push test, because a
+    row that is not the same as the incoming one is exactly the row that has to
+    be remembered.
 
-    Where `_agree` is lenient (cross-source), the book diff must be strict:
-    the book records vendor facts, and "the vendor added a peak window" or
-    "moved the window by an hour" is a fact change that must surface as
-    CHANGED — otherwise a window edit upstream would never reach the book.
+    Where `_agree` is lenient (cross-source), the book diff must be strict.
+    `_agree` tolerates a field one source does not publish, because an
+    aggregator with no cache column is not disagreeing with the vendor that has
+    one. A book diff has no such excuse — both sides are supposed to carry every
+    field, so:
+
+    * "the vendor added a peak window" / "moved the window by an hour" is a fact
+      change, or a window edit upstream would never reach the book;
+    * "the vendor stopped publishing a cache rate" (Gemini's TTS rows dropped
+      their caching row) is one too. Keeping the old figure silently charges a
+      rate nobody publishes any more — and it is HIGHER than the input-rate
+      fallback a missing cache rate gets, so the silence costs money.
     """
-    if not _agree(a, b):
+    if any(
+        not _rate_eq(getattr(a, f), getattr(b, f))
+        for f in ('input', 'output', 'cache_read', 'cache_write')
+    ):
         return False
     if (a.peak is None) != (b.peak is None):
         return False
@@ -124,6 +138,22 @@ def _same(a: Price, b: Price) -> bool:
     # have kept a weekday restriction out of the book by simply not looking
     # at it. Pydantic compares by value, so the next field is covered too.
     return _agree(a.peak, b.peak) and (a.peak_windows or []) == (b.peak_windows or [])
+
+
+def _same_scheduled(a: Price, b: Price) -> bool:
+    """Announcement equality, whole-row.
+
+    A selected comparison rather than `a.scheduled == b.scheduled`, for the
+    reason `_same` uses whole-model equality on the peak variant: `days` was
+    added to `TimeWindow` in 2026-09 and a hand-listed tuple would have kept a
+    weekday restriction out of the book by simply not looking at it. A future
+    rate's own `scheduled` is dropped because announcements do not stack.
+    """
+
+    def rows(p: Price) -> list[dict]:
+        return [r.model_dump(exclude={'scheduled'}) for r in (p.scheduled or [])]
+
+    return rows(a) == rows(b)
 
 
 def reconcile(results: list[SourceResult]) -> dict[str, Verdict]:
@@ -161,6 +191,14 @@ def diff_book(book: PriceBook, verdicts: dict[str, Verdict]) -> list[BookDelta]:
             deltas.append(BookDelta(model_id, Drift.NEW, None, new, verdict))
         elif not _same(old, new):
             deltas.append(BookDelta(model_id, Drift.CHANGED, old, new, verdict))
+        elif not _same_scheduled(old, new):
+            # The rate in force today did not move; the vendor published (or
+            # withdrew, or re-dated) a later one. That is a fact worth writing
+            # and reporting, and NOT a price change: making it a CHANGED row
+            # would exit 1 on a watched model every day until the announced
+            # date arrived, which is how you train yourself to dismiss the one
+            # that matters.
+            deltas.append(BookDelta(model_id, Drift.ANNOUNCED, old, new, verdict))
         else:
             deltas.append(BookDelta(model_id, Drift.SAME, old, new, verdict))
 
@@ -200,10 +238,17 @@ def apply_deltas(
     `effective_from=updated_at`. That is what lets a consumer price a past call
     at the rate it actually cost instead of at today's — without it, every
     vendor price move silently rewrites the whole billing history.
+
+    An ANNOUNCED delta writes only the future row, and the rate in force keeps
+    the date it was first observed on — restamping an unchanged rate would walk
+    today's start date forward on every refresh, which is precisely the lie
+    history exists to prevent.
     """
     models = dict(book.models)
     for d in deltas:
-        if d.drift not in (Drift.NEW, Drift.CHANGED) or d.new is None:
+        if d.drift not in (Drift.NEW, Drift.CHANGED, Drift.ANNOUNCED):
+            continue
+        if d.new is None:
             continue
         existing = models.get(d.model_id)
         tiers = dict(existing.tiers) if existing else {}
@@ -211,9 +256,12 @@ def apply_deltas(
             {k: list(v) for k, v in existing.history.items()} if existing else {}
         )
         outgoing = tiers.get(STANDARD)
-        if outgoing is not None and not _same_rates(outgoing, d.new):
-            history.setdefault(STANDARD, []).append(outgoing)
-        tiers[STANDARD] = d.new.model_copy(update={'effective_from': updated_at})
+        if outgoing is not None and not _same(outgoing, d.new):
+            history.setdefault(STANDARD, []).append(_plain(outgoing))
+            stamp = updated_at
+        else:
+            stamp = outgoing.effective_from if outgoing is not None else updated_at
+        tiers[STANDARD] = d.new.model_copy(update={'effective_from': stamp})
         models[d.model_id] = ModelEntry(
             id=d.model_id,
             vendor=_vendor_of(d),
@@ -223,14 +271,61 @@ def apply_deltas(
             note=existing.note if existing else None,
             history=history,
         )
+    for model_id, entry in list(models.items()):
+        models[model_id] = _promote_arrived(entry, updated_at)
     return PriceBook(updated_at=updated_at, models=models)
 
 
-def _same_rates(a: Price, b: Price) -> bool:
-    """Rate equality ignoring `effective_from`, so re-stamping the same numbers
-    on a refresh never pushes a duplicate row into history."""
-    fields = ('input', 'output', 'cache_read', 'cache_write', 'peak', 'peak_windows')
-    return all(getattr(a, f) == getattr(b, f) for f in fields)
+def _plain(price: Price) -> Price:
+    """The rate alone, with no announcements riding along.
+
+    History records what a rate WAS. An announcement is a claim about a later
+    date and gets recomputed from the page every refresh; copying one into a
+    superseded row would resurrect it the day the vendor retracts it.
+    """
+    return price.model_copy(update={'scheduled': None})
+
+
+def _promote_arrived(entry: ModelEntry, today: str) -> ModelEntry:
+    """Fold an announced rate whose start date has arrived into `tiers`.
+
+    Runs over EVERY model, not only the ones this run changed. A vendor page
+    that keeps publishing 'through <date>' after that date has passed parses to
+    exactly the row already in the book, so no delta is raised and nothing
+    would ever move it — the book would go on quoting a discount that ended,
+    and `at=None` callers pay a rate nobody is charging any more. (`price_at`
+    is correct throughout: the announced row is dated, so any query on or after
+    that date already picks it. This is the `at=None` half.)
+
+    The promoted row keeps its PUBLISHED start date rather than `today` — the
+    one place in this book where `effective_from` is a vendor date instead of a
+    first-observed one, because here the vendor said it out loud.
+    """
+    price = entry.tiers.get(STANDARD)
+    if price is None or not price.scheduled:
+        return entry
+    arrived = [
+        p for p in price.scheduled if p.effective_from and p.effective_from <= today
+    ]
+    if not arrived:
+        return entry
+    winner = max(arrived, key=lambda p: p.effective_from or '')
+    remaining = [p for p in price.scheduled if p is not winner]
+    promoted = winner.model_copy(update={'scheduled': remaining or None})
+    history = {k: list(v) for k, v in entry.history.items()}
+    if not _same(price, promoted):
+        history.setdefault(STANDARD, []).append(_plain(price))
+    tiers = dict(entry.tiers)
+    tiers[STANDARD] = promoted
+    return entry.model_copy(update={'tiers': tiers, 'history': history})
+
+
+def _rate_eq(x: float | None, y: float | None) -> bool:
+    """Strict on presence, tolerant on float noise: `None` and a number are
+    different facts, 0.075 and 0.07500000000001 are the same one."""
+    if x is None or y is None:
+        return x is y
+    return abs(x - y) < EPSILON
 
 
 def _vendor_of(delta: BookDelta) -> str:

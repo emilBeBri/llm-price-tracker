@@ -57,11 +57,47 @@ def _price_cell(p: Price | None) -> str:
 
     The scalar columns show the off-peak rate; without the marker a viewer
     would read it as THE price and never learn the 2x peak window exists.
+
+    No rich markup in here on purpose: `refresh` pads this with `:>18`, and
+    markup characters would count toward the width and skew the column.
     """
     if p is None:
         return '—'
     s = f'{_money(p.input)}/{_money(p.output)}'
     return f'{s}·peak' if p.peak is not None else s
+
+
+def _cache_note(old: Price | None, new: Price | None) -> str:
+    """' ·cache $0.125→—' when a cache rate moved and the in/out columns didn't.
+
+    Without it that row renders 'same -> same' — a false positive, which is the
+    fastest way to teach a reader to skim a table of real ones.
+    """
+    before = old.cache_read if old else None
+    after = new.cache_read if new else None
+    if before == after:
+        return ''
+    if old is not None and new is not None and (old.input, old.output) != (
+        new.input,
+        new.output,
+    ):
+        return ''  # the rate columns already show a change
+    return f' ·cache {_money(before)}→{_money(after)}'
+
+
+def _announce_cell(p: Price | None) -> str:
+    """' → $4.00/$20.00 @2026-12-01' for a vendor-published future rate.
+
+    Without it an announcement-only row renders as 'same -> same', which reads
+    as a false positive — and a table that shows rows with nothing in them is
+    one you learn to skim past.
+    """
+    if p is None:
+        return ''
+    return ''.join(
+        f' → {_money(f.input)}/{_money(f.output)} @{f.effective_from}'
+        for f in (p.scheduled or [])
+    )
 
 
 def _fetch_or_exit(timeout: float):
@@ -114,7 +150,7 @@ def _drift_table(deltas, title: str, title_style: str) -> Table:
             d.model_id,
             d.drift.value,
             _price_cell(d.old),
-            _price_cell(d.new),
+            _price_cell(d.new) + _announce_cell(d.new) + _cache_note(d.old, d.new),
             ', '.join(d.verdict.corroborated_by) if d.verdict else '',
         )
     return table
@@ -226,9 +262,45 @@ def check(
     watched = [d for d in changed if policy.is_watched(d.model_id)]
     background = [d for d in changed if not policy.is_watched(d.model_id)]
 
-    # Background table first, watched table last. The systemd unit's
+    # Announced: a vendor published a rate that starts on a later date. Written
+    # by `refresh`, reported here, and deliberately NOT an alert — the rate in
+    # force has not moved, and a daily red row for a change you were told about
+    # weeks in advance is the noise this tool's two tiers exist to avoid.
+    announced = [d for d in deltas if d.drift is Drift.ANNOUNCED]
+    # A published future rate whose start date has already passed is still
+    # sitting in `tiers.scheduled` — the page kept its 'through <date>' clause
+    # after it expired, so the parse is unchanged and no delta fires. `price_at`
+    # is already correct for it; only an `at=None` caller is still being quoted
+    # the old rate, and only `refresh --write` can move it.
+    today = datetime.now(UTC).date().isoformat()
+    arrived: list[str] = []
+    for model_id, entry in book.models.items():
+        price = entry.standard
+        if price is None:
+            continue
+        if any(
+            f.effective_from and f.effective_from <= today
+            for f in price.scheduled or []
+        ):
+            arrived.append(model_id)
+    arrived.sort()
+
+    # Announced table first, then background, then watched. The systemd unit's
     # ExecStopPost tails this output into the notification body, so the rows
     # that earned the alert have to be the ones nearest the bottom.
+    if announced:
+        console.print(
+            _drift_table(
+                announced,
+                'Announced — published, not yet in force (recorded, no alert)',
+                'green',
+            )
+        )
+    if arrived:
+        console.print(
+            f'[yellow]{len(arrived)} announced rate(s) are now in force but still '
+            f'recorded as upcoming — run `refresh --write`: {", ".join(arrived)}[/]'
+        )
     if background:
         console.print(
             _drift_table(
@@ -287,7 +359,9 @@ def refresh(
     verdicts = reconcile(results)
     book = load_book(book_path)
     deltas = diff_book(book, verdicts)
-    changed = [d for d in deltas if d.drift in (Drift.NEW, Drift.CHANGED)]
+    changed = [
+        d for d in deltas if d.drift in (Drift.NEW, Drift.CHANGED, Drift.ANNOUNCED)
+    ]
 
     if not uncorroborated:
         kept = [d for d in changed if is_corroborated(d)]
@@ -301,7 +375,7 @@ def refresh(
 
     for d in changed:
         old = _price_cell(d.old)
-        new = _price_cell(d.new)
+        new = _price_cell(d.new) + _announce_cell(d.new)
         console.print(f'  {d.drift.value:8} {d.model_id:34} {old:>18} -> {new}')
 
     if not changed:
@@ -396,6 +470,14 @@ def show(
     for k, entry in rows.items():
         if entry.note:
             console.print(f'[yellow]* {k}[/] — {entry.note}')
+    if not when:
+        # The rate in force is not the whole vendor fact. A published future
+        # rate that `show` silently omits is the same quiet wrongness this whole
+        # repository exists to end — the doubling lands with no warning.
+        for k, entry in rows.items():
+            price = entry.tiers.get(STANDARD)
+            if price is not None and price.scheduled:
+                console.print(f'[dim]{k} {_announce_cell(price).strip()}[/]')
     console.print(f'{len(rows)} of {len(book.models)} model(s)')
 
 

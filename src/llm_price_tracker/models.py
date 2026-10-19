@@ -127,6 +127,19 @@ class Price(BaseModel):
     # apply, so `peak` is only meaningful when `peak_windows` is non-empty.
     peak: Price | None = None
     peak_windows: list[TimeWindow] | None = None
+    # Rates the vendor has ALREADY PUBLISHED as starting on a later date, each
+    # carrying that date in its own `effective_from`. A vendor fact like any
+    # other, and one this book was silently discarding: Google's whole lineup
+    # reads "$2.00 through November 30, 2026. $4.00 starting December 1, 2026",
+    # and taking the first amount recorded a discount as a standing rate with
+    # nothing in the book to explain the doubling when it arrived.
+    #
+    # Recorded, not projected. The same page retracts them — Anthropic's
+    # pricing page states outright that Sonnet 5's scheduled September increase
+    # "will not occur" — so `apply_deltas` recomputes these from the page on
+    # every refresh instead of carrying them forward: a withdrawn announcement
+    # has to disappear, and a sticky one would predict a phantom price forever.
+    scheduled: list[Price] | None = None
 
     def for_time(self, at: datetime) -> Price:
         """The scalar rate in force at `at` (UTC): the peak variant if `at`
@@ -172,10 +185,17 @@ class ModelEntry(BaseModel):
     def rate_history(self, tier: str = STANDARD) -> list[Price]:
         """Every rate this book has recorded for `tier`, oldest first, with
         the current one last. Undated rows sort before dated ones — an undated
-        row predates history tracking, so it is the oldest thing we know."""
+        row predates history tracking, so it is the oldest thing we know.
+
+        Announced-but-not-yet-in-force rows (`Price.scheduled`) are in here
+        too, which is the whole reason they are dated: sorting by
+        `effective_from` alone puts a future rate in the future, so `price_at`
+        answers a future date correctly the day the vendor publishes it rather
+        than the day it takes effect."""
         rows = [*self.history.get(tier, [])]
         current = self.tiers.get(tier)
         if current is not None:
+            rows.extend(current.scheduled or [])
             rows.append(current)
         return sorted(rows, key=lambda p: p.effective_from or '')
 
@@ -184,6 +204,10 @@ class ModelEntry(BaseModel):
 
         `at=None` means now, i.e. the current row — the only answer that needs
         no history at all, and the default everywhere.
+
+        A query dated after an announced rate's published start date returns
+        that rate even though `tiers` still holds the one in force today:
+        `rate_history` merges the two, and the date comparison does the rest.
 
         A query that predates every recorded row returns the OLDEST known rate
         rather than None. That is a deliberate best-effort: the alternative is

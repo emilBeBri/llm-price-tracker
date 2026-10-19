@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterator
+from datetime import date
 
 from selectolax.parser import HTMLParser
 
@@ -32,9 +33,12 @@ class AnthropicSource(Source):
 
     # "Claude Sonnet 5 through August 31, 2026" -> ('sonnet 5', ' through ...')
     _NAME = re.compile(r'^claude\s+([a-z0-9.\s]+?)\s*(?:\[|\(|$)', re.IGNORECASE)
+    # "Claude Sonnet 5 starting September 1, 2026" -> 'September 1, 2026'.
+    _STARTING = re.compile(r'\s+starting\s+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})')
 
     def parse(self, body: str) -> dict[str, Price]:
         out: dict[str, Price] = {}
+        future: dict[str, list[Price]] = {}
         for line in body.splitlines():
             s = line.strip()
             if not s.startswith('|') or 'claude' not in s.lower():
@@ -42,7 +46,20 @@ class AnthropicSource(Source):
             cells = [c.strip() for c in s.strip('|').split('|')]
             if len(cells) < 5:
                 continue
-            m = self._NAME.match(cells[0])
+            # A model with a dated rate cut appears TWICE: the row in force now
+            # ('[through August 31, 2026]') and the row that replaces it
+            # ('starting September 1, 2026'). The first is the current rate; the
+            # second is a vendor-published future fact, and it is kept as
+            # `scheduled` instead of dropped. Dropping it is how the doubling
+            # arrives as an unexplained surprise rather than a dated row — and
+            # how a page that CANCELS an announced increase (Anthropic did
+            # exactly that when it made Sonnet 5's intro rate permanent) would
+            # leave a phantom price in the book forever.
+            name_cell = cells[0]
+            start = self._STARTING.search(name_cell)
+            if start is not None:
+                name_cell = name_cell[: start.start()]
+            m = self._NAME.match(name_cell)
             if not m:
                 continue
             # Columns: name | base input | 5m cache write | 1h cache write |
@@ -51,18 +68,28 @@ class AnthropicSource(Source):
             if len(rates) < 5 or rates[0] is None or rates[4] is None:
                 continue
             slug = 'claude-' + re.sub(r'\s+', '-', m.group(1).strip().lower())
-            # A model with a dated introductory rate appears TWICE: the current
-            # row and the future one. Keep the first, which the page lists as
-            # the rate in force now.
-            out.setdefault(
-                slug,
-                Price(
-                    input=rates[0],
-                    output=rates[4],
-                    cache_read=rates[3],
-                    cache_write=rates[1],
-                ),
+            price = Price(
+                input=rates[0],
+                output=rates[4],
+                cache_read=rates[3],
+                cache_write=rates[1],
             )
+            if start is not None:
+                when = _iso_date(start.group(1) or '')
+                if when is not None:
+                    future.setdefault(slug, []).append(
+                        price.model_copy(update={'effective_from': when})
+                    )
+                continue
+            out.setdefault(slug, price)
+        for slug, rows in future.items():
+            current = out.get(slug)
+            if current is not None:
+                out[slug] = current.model_copy(
+                    update={
+                        'scheduled': sorted(rows, key=lambda p: p.effective_from or '')
+                    }
+                )
         return out
 
 
@@ -301,6 +328,19 @@ class GoogleSource(Source):
     expect = ('gemini-3',)
 
     _AMOUNT = re.compile(r'\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)')
+    # '$2.00 through November 30, 2026. $4.00 starting December 1, 2026.'
+    # Every Gemini row is currently priced that way: the whole lineup is on a
+    # discount with a published end date, and the second amount is what the
+    # rate becomes. A modal qualifier may sit between the amount and its date
+    # ('$0.50 (text) through ...'), and the figures that follow a /-unit
+    # ('$0.50 / 1,000,000 tokens per hour') are cache storage, not rates — the
+    # pattern is anchored on 'through'/'starting' for that reason.
+    _PROMO = re.compile(
+        r'\$\s*(?P<now>[0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:\([^)]*\)\s*)?'
+        r'through\s+[A-Z][a-z]+\s+\d{1,2},?\s+\d{4}\.?\s*'
+        r'\$\s*(?P<next>[0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:\([^)]*\)\s*)?'
+        r'starting\s+(?P<start>[A-Z][a-z]+\s+\d{1,2},?\s+\d{4})'
+    )
     # What follows the amount, not what appears anywhere in the cell: the
     # cache cell's '$0.15 $1.00 / 1,000,000 tokens per hour' is a token rate
     # whose SECOND figure is hourly storage, and it must keep parsing.
@@ -320,21 +360,55 @@ class GoogleSource(Source):
             if table is None:
                 continue
             inp = outp = cached = None
+            # start date -> the announced row's fields so far. Keyed by date
+            # because the three cells of one model need not announce the same
+            # one: `gemini-4-argon` doubles on 2026-12-01, the 2.5 family on
+            # 2027-01-01.
+            announced: dict[str, dict[str, float]] = {}
             for tr in table.css('tr'):
                 c = [n.text(strip=True) for n in tr.css('th, td')]
                 if not c:
                     continue
                 label = c[0].lower()
                 if label.startswith('input price'):
-                    inp = self._token_rate(c[-1])
+                    metric = 'input'
                 elif label.startswith('output price'):
-                    outp = self._token_rate(c[-1])
+                    metric = 'output'
                 elif label.startswith('context caching'):
                     # Cell reads "$0.15 $1.00 / 1,000,000 tokens per hour"; the
                     # first figure is the per-token read, the second is storage.
-                    cached = self._token_rate(c[-1])
+                    metric = 'cache_read'
+                else:
+                    continue
+                cell = c[-1]
+                rate = self._token_rate(cell)
+                if metric == 'input':
+                    inp = rate
+                elif metric == 'output':
+                    outp = rate
+                else:
+                    cached = rate
+                for start, future in self._announced(cell):
+                    announced.setdefault(start, {})[metric] = future
             if inp is not None and outp is not None:
-                out[m.group(1)] = Price(input=inp, output=outp, cache_read=cached)
+                out[m.group(1)] = Price(
+                    input=inp,
+                    output=outp,
+                    cache_read=cached,
+                    scheduled=[
+                        Price(
+                            input=row['input'],
+                            output=row['output'],
+                            cache_read=row.get('cache_read'),
+                            effective_from=start,
+                        )
+                        for start, row in sorted(announced.items())
+                        # Without both token rates there is nothing to charge
+                        # against: half an announced row is not a price.
+                        if 'input' in row and 'output' in row
+                    ]
+                    or None,
+                )
         return out
 
     def _token_rate(self, cell: str) -> float | None:
@@ -343,6 +417,15 @@ class GoogleSource(Source):
         if m is None or self._OTHER_UNIT.match(cell[m.end() :]):
             return None
         return float(m.group(1).replace(',', ''))
+
+    def _announced(self, cell: str) -> list[tuple[str, float]]:
+        """(start date, rate) for each published 'through X … starting Y'."""
+        found: list[tuple[str, float]] = []
+        for m in self._PROMO.finditer(cell):
+            start = _iso_date(m.group('start'))
+            if start is not None:
+                found.append((start, float(m.group('next').replace(',', ''))))
+        return found
 
 
 class DeepSeekSource(Source):
@@ -560,6 +643,46 @@ def _weekdays(text: str) -> list[int] | None:
     if not days:
         raise ValueError(f'unreadable day qualifier: {text!r}')
     return sorted(days)
+
+
+_MONTHS = {
+    name: number
+    for number, name in enumerate(
+        (
+            'january',
+            'february',
+            'march',
+            'april',
+            'may',
+            'june',
+            'july',
+            'august',
+            'september',
+            'october',
+            'november',
+            'december',
+        ),
+        1,
+    )
+}
+
+
+def _iso_date(text: str) -> str | None:
+    """'November 30, 2026' -> '2026-11-30'; None when it is not a real date.
+
+    A month-name table rather than `strptime('%B')`, which is locale-dependent:
+    a parser must not start returning None because `LANG` moved.
+    """
+    m = re.fullmatch(r'([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})', text.strip())
+    if m is None:
+        return None
+    month = _MONTHS.get(m.group(1).lower())
+    if month is None:
+        return None
+    try:
+        return date(int(m.group(3)), month, int(m.group(2))).isoformat()
+    except ValueError:
+        return None
 
 
 def _column_index(header: list[str], *needles: str) -> int | None:

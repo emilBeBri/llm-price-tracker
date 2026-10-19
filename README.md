@@ -81,6 +81,49 @@ token counts and derives cost on read (rather than snapshotting cost at call
 time) must pass `at`, or every vendor price move silently rewrites its whole
 billing history.
 
+### Announced rates: published now, in force later
+
+Vendors date their discounts. Every Gemini row currently says `$2.00 through
+November 30, 2026. $4.00 starting December 1, 2026`, and the parser's first
+instinct — take the first amount — recorded a six-week promo as a standing rate
+while throwing the doubling away. On 2026-12-01 the book would have shown eleven
+watched models doubling at once with nothing in it to explain why.
+
+So a published future rate is recorded next to the one in force, in
+`tiers.standard.scheduled`, each row carrying the date the vendor published with
+it:
+
+```json
+"standard": {
+  "input": 2.0, "output": 10.0, "cache_read": 0.1,
+  "effective_from": "2026-10-16",
+  "scheduled": [{"input": 4.0, "output": 20.0, "cache_read": 0.2,
+                 "effective_from": "2026-12-01"}]
+}
+```
+
+`tiers` still means the rate in force NOW — an `at=None` caller keeps getting
+today's price — while `price_at()`/`--at` see the future row, because it is
+dated and `rate_history` sorts the two together:
+
+```bash
+llm-price-tracker show gemini-4-argon --at 2026-11-30   # $2.00 — today's promo
+llm-price-tracker show gemini-4-argon --at 2026-12-01   # $4.00 — announced
+```
+
+Announcements are **recomputed from the page on every refresh**, never carried
+forward: a withdrawn one has to disappear. Anthropic did exactly that when it
+made Sonnet 5's introductory rate permanent and stated the September increase
+"will not occur" — a sticky row would have predicted a phantom price forever.
+
+An announcement is reported as `announced`, not `changed`: the rate in force has
+not moved, so it does not set exit 1 and does not fire a notification. A daily
+red row for a change you were told about six weeks in advance is the noise the
+two alert tiers exist to avoid. When the announced date arrives, `refresh
+--write` folds it into `tiers` (the one place `effective_from` is a *published*
+date rather than a first-observed one); until then `check` prints a one-line
+reminder that a rate is now in force but still recorded as upcoming.
+
 `llm-price-tracker show <model> --at 2026-08-15` reads the same history from
 the CLI. Dates are **first-observed**: the commit that introduced the rate, a
 lower bound on when the vendor started charging it, never an announcement
@@ -93,7 +136,11 @@ record or an extrapolation. History before 2026-09-02 was backfilled from
 **Vendor facts only.** The book records what a vendor publishes, keyed by the
 vendor's own model id. It holds no consuming app's billing decisions — no
 namespaced keys, no deployment aliases, no projected future prices. Apps map
-their own keys onto these ids and keep their overrides locally.
+their own keys onto these ids and keep their overrides locally. That includes a
+rate the vendor has *already published* as starting on a later date: Google's
+whole lineup reads `$2.00 through November 30, 2026. $4.00 starting December 1,
+2026`, and the second amount is a fact, not a projection — see [Announced
+rates](#announced-rates-published-now-in-force-later).
 
 **Absence is loud, wrong is silent.** An unknown model returns `None`, never
 `0.0`. For the same reason `refresh` refuses by default to record a model that
