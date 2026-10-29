@@ -13,7 +13,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from .models import STANDARD, ModelEntry, Price, PriceBook
+from .models import STANDARD, ModelEntry, Price, PriceBook, UsagePrice
 
 DATA_PATH = Path(__file__).resolve().parent / 'data' / 'prices.json'
 
@@ -65,6 +65,13 @@ def _implausible_rates(book: PriceBook) -> list[str]:
                         bad.append(
                             f'{model_id}.{tier}{suffix}.{rate_field} = ${value}/M'
                         )
+    for key, card in book.usage_prices.items():
+        for name, rate in card.rates.items():
+            if (
+                rate.unit == 'tokens'
+                and rate.amount / rate.per * 1_000_000 > MAX_SANE_MTOK
+            ):
+                bad.append(f'{key}.{name} = ${rate.amount}/{rate.per} tokens')
     return bad
 
 
@@ -84,6 +91,13 @@ def save_book(book: PriceBook, path: Path | None = None) -> None:
         if not row.get('history'):
             row.pop('history', None)
     payload['models'] = dict(sorted(payload['models'].items()))
+    if payload['usage_prices']:
+        payload['usage_prices'] = dict(sorted(payload['usage_prices'].items()))
+        for card in payload['usage_prices'].values():
+            if not card.get('history'):
+                card.pop('history', None)
+    else:
+        payload.pop('usage_prices')
     target.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False) + '\n', encoding='utf-8'
     )
@@ -148,6 +162,14 @@ def get_price(
         return entry.tiers.get(tier)
     price = entry.price_at(at, tier)
     return price.for_time(at) if price is not None else None
+
+
+def get_usage_price(
+    price_id: str, book: PriceBook | None = None, at: datetime | None = None
+) -> UsagePrice | None:
+    """Offline, exact lookup of an image or hosted-service rate card."""
+    card = (book or load_book()).usage_prices.get(price_id)
+    return card.price_at(at) if card is not None else None
 
 
 def estimate_cost(

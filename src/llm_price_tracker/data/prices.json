@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-19",
+  "updated_at": "2026-10-29",
   "models": {
     "babbage-002": {
       "id": "babbage-002",
@@ -2413,6 +2413,626 @@
         "llm-prices.com",
         "openai"
       ]
+    }
+  },
+  "usage_prices": {
+    "anthropic.web_search": {
+      "id": "anthropic.web_search",
+      "vendor": "anthropic",
+      "rates": {
+        "searches": {
+          "amount": 10.0,
+          "per": 1000,
+          "unit": "queries"
+        }
+      },
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing.md",
+      "note": "Successful searches; content tokens billed separately.",
+      "effective_from": "2026-10-29"
+    },
+    "azure.image.gpt-image-1-mini.global": {
+      "id": "azure.image.gpt-image-1-mini.global",
+      "vendor": "azure",
+      "rates": {
+        "input_text": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_text": {
+          "amount": 0.2,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_image": {
+          "amount": 2.5,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_image": {
+          "amount": 0.25,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 8.0,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://azure.microsoft.com/en-us/pricing/details/azure-openai/",
+      "note": "Azure Global Standard; published USD rates agree across all available regions.",
+      "effective_from": "2026-10-29"
+    },
+    "azure.image.gpt-image-1.5.global": {
+      "id": "azure.image.gpt-image-1.5.global",
+      "vendor": "azure",
+      "rates": {
+        "input_text": {
+          "amount": 5.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_text": {
+          "amount": 1.25,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_image": {
+          "amount": 8.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_image": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 32.0,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://azure.microsoft.com/en-us/pricing/details/azure-openai/",
+      "note": "Azure Global Standard; published USD rates agree across all available regions.",
+      "effective_from": "2026-10-29"
+    },
+    "azure.image.gpt-image-1.global": {
+      "id": "azure.image.gpt-image-1.global",
+      "vendor": "azure",
+      "rates": {
+        "input_text": {
+          "amount": 5.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_text": {
+          "amount": 1.25,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_image": {
+          "amount": 10.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_image": {
+          "amount": 2.5,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 40.0,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://azure.microsoft.com/en-us/pricing/details/azure-openai/",
+      "note": "Azure Global Standard; published USD rates agree across all available regions.",
+      "effective_from": "2026-10-29"
+    },
+    "azure.image.gpt-image-2.5-flare.global": {
+      "id": "azure.image.gpt-image-2.5-flare.global",
+      "vendor": "azure",
+      "rates": {
+        "input_text": {
+          "amount": 5.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_text": {
+          "amount": 1.25,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_image": {
+          "amount": 8.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_image": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 30.0,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://azure.microsoft.com/en-us/pricing/details/azure-openai/",
+      "note": "Azure Global Standard; published USD rates agree across all available regions.",
+      "effective_from": "2026-10-29"
+    },
+    "azure.image.gpt-image-2.5-sunburst.global": {
+      "id": "azure.image.gpt-image-2.5-sunburst.global",
+      "vendor": "azure",
+      "rates": {
+        "input_text": {
+          "amount": 5.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_text": {
+          "amount": 1.25,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_image": {
+          "amount": 8.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_image": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 30.0,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://azure.microsoft.com/en-us/pricing/details/azure-openai/",
+      "note": "Azure Global Standard; published USD rates agree across all available regions.",
+      "effective_from": "2026-10-29"
+    },
+    "azure.image.gpt-image-2.global": {
+      "id": "azure.image.gpt-image-2.global",
+      "vendor": "azure",
+      "rates": {
+        "input_text": {
+          "amount": 5.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_text": {
+          "amount": 1.25,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_image": {
+          "amount": 8.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_image": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 30.0,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://azure.microsoft.com/en-us/pricing/details/azure-openai/",
+      "note": "Azure Global Standard; published USD rates agree across all available regions.",
+      "effective_from": "2026-10-29"
+    },
+    "google.image.gemini-3-pro-image": {
+      "id": "google.image.gemini-3-pro-image",
+      "vendor": "google",
+      "rates": {
+        "input_text": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_image": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_text": {
+          "amount": 12.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 120.0,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "note": "Standard text/image input, text/thinking output, and image output.",
+      "effective_from": "2026-10-29"
+    },
+    "google.image.gemini-3.1-flash-image": {
+      "id": "google.image.gemini-3.1-flash-image",
+      "vendor": "google",
+      "rates": {
+        "input_text": {
+          "amount": 0.5,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_image": {
+          "amount": 0.5,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_text": {
+          "amount": 3.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 60.0,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "note": "Standard text/image input, text/thinking output, and image output.",
+      "effective_from": "2026-10-29"
+    },
+    "google.image.gemini-3.1-flash-lite-image": {
+      "id": "google.image.gemini-3.1-flash-lite-image",
+      "vendor": "google",
+      "rates": {
+        "input_text": {
+          "amount": 0.25,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_image": {
+          "amount": 0.25,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_text": {
+          "amount": 1.5,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 30.0,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "note": "Standard text/image input, text/thinking output, and image output.",
+      "effective_from": "2026-10-29"
+    },
+    "google.image.gemini-nano-banana-2.1": {
+      "id": "google.image.gemini-nano-banana-2.1",
+      "vendor": "google",
+      "rates": {
+        "input_text": {
+          "amount": 1.5,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_image": {
+          "amount": 1.5,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_text": {
+          "amount": 7.5,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 30.0,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "note": "Standard text/image input, text/thinking output, and image output.",
+      "effective_from": "2026-10-29"
+    },
+    "google.maps_grounding.gemini2": {
+      "id": "google.maps_grounding.gemini2",
+      "vendor": "google",
+      "rates": {
+        "grounded_prompts": {
+          "amount": 25.0,
+          "per": 1000,
+          "unit": "grounded_prompts"
+        }
+      },
+      "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "note": "Paid rate before account-wide free allowances.",
+      "effective_from": "2026-10-29"
+    },
+    "google.maps_grounding.gemini3": {
+      "id": "google.maps_grounding.gemini3",
+      "vendor": "google",
+      "rates": {
+        "searches": {
+          "amount": 14.0,
+          "per": 1000,
+          "unit": "queries"
+        }
+      },
+      "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "note": "Paid rate before account-wide free allowances.",
+      "effective_from": "2026-10-29"
+    },
+    "google.web_search.gemini2": {
+      "id": "google.web_search.gemini2",
+      "vendor": "google",
+      "rates": {
+        "grounded_prompts": {
+          "amount": 35.0,
+          "per": 1000,
+          "unit": "grounded_prompts"
+        }
+      },
+      "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "note": "Paid rate before account-wide free allowances.",
+      "effective_from": "2026-10-29"
+    },
+    "google.web_search.gemini3": {
+      "id": "google.web_search.gemini3",
+      "vendor": "google",
+      "rates": {
+        "searches": {
+          "amount": 14.0,
+          "per": 1000,
+          "unit": "queries"
+        }
+      },
+      "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "note": "Paid rate before account-wide free allowances.",
+      "effective_from": "2026-10-29"
+    },
+    "openai.image.chatgpt-image-latest": {
+      "id": "openai.image.chatgpt-image-latest",
+      "vendor": "openai",
+      "rates": {
+        "input_image": {
+          "amount": 8.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_image": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 32.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_text": {
+          "amount": 5.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_text": {
+          "amount": 1.25,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_text": {
+          "amount": 10.0,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "note": "Standard image modalities; cached rates require an endpoint that supports caching.",
+      "effective_from": "2026-10-29"
+    },
+    "openai.image.gpt-image-1-mini": {
+      "id": "openai.image.gpt-image-1-mini",
+      "vendor": "openai",
+      "rates": {
+        "input_image": {
+          "amount": 2.5,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_image": {
+          "amount": 0.25,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 8.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_text": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_text": {
+          "amount": 0.2,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "note": "Standard image modalities; cached rates require an endpoint that supports caching.",
+      "effective_from": "2026-10-29"
+    },
+    "openai.image.gpt-image-1.5": {
+      "id": "openai.image.gpt-image-1.5",
+      "vendor": "openai",
+      "rates": {
+        "input_image": {
+          "amount": 8.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_image": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 32.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_text": {
+          "amount": 5.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_text": {
+          "amount": 1.25,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_text": {
+          "amount": 10.0,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "note": "Standard image modalities; cached rates require an endpoint that supports caching.",
+      "effective_from": "2026-10-29"
+    },
+    "openai.image.gpt-image-2": {
+      "id": "openai.image.gpt-image-2",
+      "vendor": "openai",
+      "rates": {
+        "input_image": {
+          "amount": 8.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_image": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 30.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_text": {
+          "amount": 5.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_text": {
+          "amount": 1.25,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "note": "Standard image modalities; cached rates require an endpoint that supports caching.",
+      "effective_from": "2026-10-29"
+    },
+    "openai.image.gpt-image-2.5-flare": {
+      "id": "openai.image.gpt-image-2.5-flare",
+      "vendor": "openai",
+      "rates": {
+        "input_image": {
+          "amount": 8.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_image": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 30.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_text": {
+          "amount": 5.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_text": {
+          "amount": 1.25,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "note": "Standard image modalities; cached rates require an endpoint that supports caching.",
+      "effective_from": "2026-10-29"
+    },
+    "openai.image.gpt-image-2.5-sunburst": {
+      "id": "openai.image.gpt-image-2.5-sunburst",
+      "vendor": "openai",
+      "rates": {
+        "input_image": {
+          "amount": 8.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_image": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 30.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_text": {
+          "amount": 5.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_text": {
+          "amount": 1.25,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "note": "Standard image modalities; cached rates require an endpoint that supports caching.",
+      "effective_from": "2026-10-29"
+    },
+    "openai.web_search": {
+      "id": "openai.web_search",
+      "vendor": "openai",
+      "rates": {
+        "searches": {
+          "amount": 10.0,
+          "per": 1000,
+          "unit": "queries"
+        }
+      },
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "note": "Non-preview web search; content tokens billed separately.",
+      "effective_from": "2026-10-29"
     }
   }
 }

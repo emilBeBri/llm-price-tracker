@@ -10,17 +10,27 @@ estimation has to be deterministic, and the same call priced twice must not
 depend on whether a 24h cache had expired.
 """
 
-from .book import estimate_cost, get_entry, get_price, load_book, save_book
-from .models import STANDARD, ModelEntry, Price, PriceBook
+from .book import (
+    estimate_cost,
+    get_entry,
+    get_price,
+    get_usage_price,
+    load_book,
+    save_book,
+)
+from .models import STANDARD, ModelEntry, Price, PriceBook, UnitPrice, UsagePrice
 
 __all__ = [
     'STANDARD',
     'ModelEntry',
     'Price',
     'PriceBook',
+    'UnitPrice',
+    'UsagePrice',
     'estimate_cost',
     'get_entry',
     'get_price',
+    'get_usage_price',
     'load_book',
     'save_book',
 ]

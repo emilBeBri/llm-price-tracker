@@ -25,6 +25,8 @@ user has supplied — the agent NEVER writes into raw/.
   promotion on arrival, and why a withdrawn announcement has to vanish
 
 ## parsing vendor pages
+- [[usage-price-cards]] — vendor-ingested image modalities, hosted fees and
+  Azure's embedded regional prices, separate from chat-token rows
 - [[parse-the-table-not-the-heading]] — z.ai moved its flagships into a new
   section; qualify tables by shape, and when a heading anchor is still right
 - [[a-money-cell-can-lie-about-its-unit]] — struck-through list prices and
@@ -38,4 +40,3 @@ user has supplied — the agent NEVER writes into raw/.
   version parsing across vendor id shapes, why a broken source still wins
 
 # orphans
-

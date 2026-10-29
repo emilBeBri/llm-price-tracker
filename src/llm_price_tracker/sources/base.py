@@ -20,7 +20,7 @@ import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
-from ..models import Price
+from ..models import Price, UsagePrice
 
 
 @dataclass(frozen=True)
@@ -36,6 +36,7 @@ class SourceResult:
     # The raw fetched document, kept so a bad parse can be post-mortemed after
     # the live page has moved on. None only when the HTTP request itself failed.
     body: str | None = field(default=None, repr=False)
+    usage_prices: dict[str, UsagePrice] = field(default_factory=dict)
 
 
 def dollars(text: str) -> float | None:
@@ -71,10 +72,15 @@ class Source(ABC):
     # identifiers, not prices, so they change rarely — which makes them a clean
     # signal that the page structure drifted rather than that prices moved.
     expect: tuple[str, ...] = ()
+    expect_usage: tuple[str, ...] = ()
 
     @abstractmethod
     def parse(self, body: str) -> dict[str, Price]:
         """Turn a fetched page into {vendor model id: Price}. Empty == drifted."""
+
+    def parse_usage_prices(self, body: str) -> dict[str, UsagePrice]:
+        """Image modalities and service fees; absent on token-only sources."""
+        return {}
 
     def fetch(self, client) -> SourceResult:
         body: str | None = None
@@ -83,20 +89,36 @@ class Source(ABC):
             resp.raise_for_status()
             body = resp.text
             prices = self.parse(body)
+            usage_prices = self.parse_usage_prices(body)
         except Exception as e:  # noqa: BLE001 - one bad source must not kill a run
             return SourceResult(
                 self.name, self.url, False, note=f'{type(e).__name__}: {e}', body=body
             )
 
-        if not prices:
+        if not prices and not usage_prices:
             return SourceResult(
                 self.name,
                 self.url,
                 False,
-                note='fetched, but parsed 0 models — page structure changed',
+                note='fetched, but parsed 0 models or usage prices — page structure changed',
                 body=body,
             )
         missing = [a for a in self.expect if not any(a in mid for mid in prices)]
+        missing_usage = [
+            key
+            for key in self.expect_usage
+            if not any(key in price_id for price_id in usage_prices)
+        ]
+        if missing_usage:
+            return SourceResult(
+                self.name,
+                self.url,
+                False,
+                prices=prices,
+                usage_prices=usage_prices,
+                note=f'expected usage prices absent: {", ".join(missing_usage)}',
+                body=body,
+            )
         if self.expect and len(missing) == len(self.expect):
             return SourceResult(
                 self.name,
@@ -115,5 +137,11 @@ class Source(ABC):
             else None
         )
         return SourceResult(
-            self.name, self.url, True, prices=prices, note=note, body=body
+            self.name,
+            self.url,
+            True,
+            prices=prices,
+            note=note,
+            body=body,
+            usage_prices=usage_prices,
         )

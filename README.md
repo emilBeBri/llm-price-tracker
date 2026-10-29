@@ -161,11 +161,41 @@ single-source, never guessed at.
 
 ## Sources
 
+### Image modalities and hosted-service fees
+
+`get_usage_price()` reads the vendor-ingested rate cards in
+`PriceBook.usage_prices`, separately from the legacy chat-shaped token rows.
+Each rate names its USD amount, denominator and unit; image text/image
+modalities remain distinct. Cards keep their source URL and rate history.
+
+```python
+from llm_price_tracker import get_usage_price
+
+card = get_usage_price('azure.image.gpt-image-2.5-sunburst.global')
+rate = card.rates['output_image']
+cost = 3000 * rate.amount / rate.per
+```
+
+OpenAI and Google image cards include their text and image token rates.
+OpenAI/Anthropic web search and Gemini search/Maps cards preserve per-query
+versus per-grounded-prompt units. Azure Global image cards come from
+Microsoft's embedded regional price data, not copied OpenAI rates; divergent
+regional amounts are refused rather than guessed.
+
+These cards participate in `check` and `refresh --write`. Missing expected
+cards flag a broken source even if its chat-token parser still works.
+Unknown IDs return `None`; consumers map their own deployment names onto the
+appropriate cards. Account-level free allowances and negotiated discounts are
+not inferred, and a price card cannot supply a usage count the API omitted.
+
+### Vendor pages
+
 | source | reads | format |
 | --- | --- | --- |
 | `anthropic` | platform.claude.com pricing | markdown |
 | `openai` | developers.openai.com pricing | markdown |
 | `google` | ai.google.dev pricing | HTML |
+| `azure` | azure.microsoft.com Azure OpenAI image pricing | HTML embedded regional data |
 | `deepseek` | api-docs.deepseek.com pricing | HTML |
 | `moonshot` | platform.kimi.ai chat-k3 pricing | markdown (MDX) |
 | `zai` | docs.z.ai pricing, every per-1M-token table | markdown |

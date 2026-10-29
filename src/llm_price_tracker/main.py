@@ -27,9 +27,11 @@ from .compare import (
     Agreement,
     Drift,
     apply_deltas,
+    apply_usage_prices,
     diff_book,
     is_corroborated,
     reconcile,
+    usage_price_updates,
 )
 from .models import STANDARD, Price, PriceBook
 from .watch import WatchPolicy, WatchPolicyError, load_policy
@@ -123,12 +125,14 @@ def _report_sources(results) -> bool:
     table.add_column('source', style='cyan')
     table.add_column('status')
     table.add_column('models', justify='right')
+    table.add_column('usage prices', justify='right')
     table.add_column('note', style='dim', overflow='fold')
     for r in results:
         table.add_row(
             r.source,
             '[green]ok[/]' if r.ok else '[red]BROKEN[/]',
             str(len(r.prices)),
+            str(len(r.usage_prices)),
             r.note or '',
         )
     console.print(table)
@@ -251,6 +255,11 @@ def check(
 
     book = load_book(book_path)
     deltas = diff_book(book, verdicts)
+    usage_updates = usage_price_updates(book, results)
+    if usage_updates:
+        console.print(
+            '[yellow]Usage prices changed:[/] ' + ', '.join(sorted(usage_updates))
+        )
     changed = [d for d in deltas if d.drift in (Drift.NEW, Drift.CHANGED)]
 
     # Must apply the SAME corroboration filter `refresh` uses. Without it this
@@ -336,7 +345,7 @@ def check(
     # is well.
     if not sources_ok:
         raise typer.Exit(EXIT_SOURCE_BROKEN)
-    if watched:
+    if watched or usage_updates:
         raise typer.Exit(EXIT_DRIFT)
 
 
@@ -361,6 +370,7 @@ def refresh(
     verdicts = reconcile(results)
     book = load_book(book_path)
     deltas = diff_book(book, verdicts)
+    usage_updates = usage_price_updates(book, results)
     changed = [
         d for d in deltas if d.drift in (Drift.NEW, Drift.CHANGED, Drift.ANNOUNCED)
     ]
@@ -382,13 +392,21 @@ def refresh(
         )
         console.print(f'  {d.drift.value:8} {d.model_id:34} {old:>18} -> {new}')
 
-    if not changed:
+    for key, card in sorted(usage_updates.items()):
+        rates = ', '.join(
+            f'{name} {_money(rate.amount)}/{rate.per} {rate.unit}'
+            for name, rate in card.rates.items()
+        )
+        console.print(f'  usage    {key}: {rates}')
+
+    count = len(changed) + len(usage_updates)
+    if not count:
         console.print('[green]Book already matches every source.[/]')
         return
 
     if not write:
         console.print(
-            f'\n[yellow]{len(changed)} change(s) proposed. Nothing written.[/] '
+            f'\n[yellow]{count} change(s) proposed. Nothing written.[/] '
             'Re-run with --write once the diff looks right.'
         )
         raise typer.Exit(EXIT_DRIFT)
@@ -396,9 +414,10 @@ def refresh(
     updated = apply_deltas(
         book, deltas, updated_at=datetime.now(UTC).date().isoformat()
     )
+    updated = apply_usage_prices(updated, usage_updates, updated.updated_at)
     save_book(updated, book_path)
     console.print(
-        f'\n[green]Wrote {len(changed)} change(s)[/] to {book_path or DATA_PATH}'
+        f'\n[green]Wrote {count} change(s)[/] to {book_path or DATA_PATH}'
     )
 
 

@@ -21,7 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from .models import STANDARD, ModelEntry, Price, PriceBook
+from .models import STANDARD, ModelEntry, Price, PriceBook, UsagePrice
 from .sources.base import SourceResult
 
 # Sub-cent-per-million differences are rounding noise between a vendor's table
@@ -273,7 +273,40 @@ def apply_deltas(
         )
     for model_id, entry in list(models.items()):
         models[model_id] = _promote_arrived(entry, updated_at)
-    return PriceBook(updated_at=updated_at, models=models)
+    return PriceBook(updated_at=updated_at, models=models, usage_prices=book.usage_prices)
+
+
+def usage_price_updates(
+    book: PriceBook, results: list[SourceResult]
+) -> dict[str, UsagePrice]:
+    """Only first-party observations can update service/modality rate cards."""
+    updates = {}
+    for result in results:
+        if not result.ok or result.source in AGGREGATOR_SOURCES:
+            continue
+        for key, card in result.usage_prices.items():
+            if card.id != key or card.vendor != result.source or card.source_url != result.url:
+                raise ValueError(f'{key}: usage price provenance does not match its source')
+            old = book.usage_prices.get(key)
+            if old is None or (old.rates, old.note, old.source_url) != (card.rates, card.note, card.source_url):
+                updates[key] = card
+    return updates
+
+
+def apply_usage_prices(
+    book: PriceBook, updates: dict[str, UsagePrice], updated_at: str
+) -> PriceBook:
+    """Keep absent cards and preserve superseded rates, like the token book."""
+    cards = dict(book.usage_prices)
+    for key, card in updates.items():
+        old = cards.get(key)
+        history = [] if old is None else [
+            *old.history, old.model_copy(update={'history': []})
+        ]
+        cards[key] = card.model_copy(update={
+            'effective_from': updated_at, 'history': history,
+        })
+    return book.model_copy(update={'updated_at': updated_at, 'usage_prices': cards})
 
 
 def _plain(price: Price) -> Price:

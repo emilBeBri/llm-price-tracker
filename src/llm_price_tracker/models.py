@@ -225,11 +225,42 @@ class ModelEntry(BaseModel):
         return in_force[-1] if in_force else rows[0]
 
 
+class UnitPrice(BaseModel):
+    """A published USD amount per explicit number of tokens or service uses."""
+
+    amount: float = Field(ge=0, allow_inf_nan=False)
+    per: int = Field(gt=0)
+    unit: str
+
+
+class UsagePrice(BaseModel):
+    """A vendor's image-modality or hosted-service rate card, not a chat model."""
+
+    id: str
+    vendor: str
+    rates: dict[str, UnitPrice]
+    source_url: str
+    note: str | None = None
+    effective_from: str | None = None
+    history: list[UsagePrice] = Field(default_factory=list)
+
+    def price_at(self, at: datetime | None = None) -> UsagePrice:
+        if at is None:
+            return self
+        rows = sorted([*self.history, self], key=lambda row: row.effective_from or '')
+        in_force = [
+            row for row in rows
+            if row.effective_from is None or row.effective_from <= at.date().isoformat()
+        ]
+        return in_force[-1] if in_force else rows[0]
+
+
 class PriceBook(BaseModel):
     """The committed artifact: every model this tracker knows a price for."""
 
     updated_at: str
     models: dict[str, ModelEntry] = Field(default_factory=dict)
+    usage_prices: dict[str, UsagePrice] = Field(default_factory=dict)
 
     def get(self, model_id: str) -> ModelEntry | None:
         return self.models.get(model_id)

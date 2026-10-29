@@ -1,5 +1,4 @@
 # An image model publishes two rates; the book records the image one
-
 tags = #architecture-decision-record #sources #parsing #openai #pricing
 
 2026-09-09: OpenAI shipped `gpt-image-2.5-sunburst` and `gpt-image-2.5-flare`.
@@ -49,6 +48,12 @@ gets a bill 20x its estimate.
 `gpt-image-2.5-*` is watched (`watch.toml` `ids`) because the `gpt` family
 rule reads its `2.5` as a text-line version and files a current-generation
 model four versions stale — see [[alert-tiers-are-not-data-tiers]].
+
+**Amended 2026-10-29:** the consumer trigger fired. Dedicated
+[[usage-price-cards]] now preserve the full modality matrix alongside the
+unchanged legacy chat-shaped rows. Gemini's image-output rate and OpenAI's
+text-input rate are machine-readable; consumers no longer need to recover
+prices from prose notes or maintain a second price table.
 
 # sources
 

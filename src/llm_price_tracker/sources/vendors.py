@@ -30,11 +30,17 @@ class AnthropicSource(Source):
     url = 'https://platform.claude.com/docs/en/about-claude/pricing.md'
     accept = 'text/markdown,text/plain,*/*'
     expect = ('opus', 'sonnet', 'haiku')
+    expect_usage = ('anthropic.web_search',)
 
     # "Claude Sonnet 5 through August 31, 2026" -> ('sonnet 5', ' through ...')
     _NAME = re.compile(r'^claude\s+([a-z0-9.\s]+?)\s*(?:\[|\(|$)', re.IGNORECASE)
     # "Claude Sonnet 5 starting September 1, 2026" -> 'September 1, 2026'.
     _STARTING = re.compile(r'\s+starting\s+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})')
+
+    def parse_usage_prices(self, body):
+        from .usage import anthropic_usage_prices
+
+        return anthropic_usage_prices(body, self.url)
 
     def parse(self, body: str) -> dict[str, Price]:
         out: dict[str, Price] = {}
@@ -130,6 +136,7 @@ class OpenAISource(Source):
     # gpt-image is here so the image section vanishing is reported as drift
     # rather than read as "OpenAI stopped selling image models".
     expect = ('gpt-5', 'gpt-image')
+    expect_usage = ('openai.image.', 'openai.web_search')
 
     _SECTION = '### Standard pricing data'
     # 'gpt-5.5 (<272K context length)' -> 'gpt-5.5'
@@ -138,6 +145,11 @@ class OpenAISource(Source):
     # The tier tabs rendered inside a section. 'Standard' is the one we record;
     # the rest exist to be refused.
     _TIER_LABELS = ('Standard', 'Batch', 'Flex', 'Fast', 'Priority')
+
+    def parse_usage_prices(self, body):
+        from .usage import openai_usage_prices
+
+        return openai_usage_prices(body, self.url)
 
     @staticmethod
     def _cells(line: str) -> list[str] | None:
@@ -326,6 +338,12 @@ class GoogleSource(Source):
     name = 'google'
     url = 'https://ai.google.dev/gemini-api/docs/pricing'
     expect = ('gemini-3',)
+    expect_usage = ('google.image.', 'google.web_search.gemini3')
+
+    def parse_usage_prices(self, body):
+        from .usage import google_usage_prices
+
+        return google_usage_prices(body, self.url)
 
     _AMOUNT = re.compile(r'\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)')
     # '$2.00 through November 30, 2026. $4.00 starting December 1, 2026.'
