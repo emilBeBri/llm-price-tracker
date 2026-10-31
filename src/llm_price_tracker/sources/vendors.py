@@ -735,16 +735,54 @@ def _pipe_tables(body: str) -> Iterator[tuple[str, list[list[str]]]]:
             caption = s
 
 
-def _split_mdx_cells(row_text: str) -> list[str]:
-    """Split one DocTable row into cells on top-level commas.
+def _jsx_groups(text: str) -> list[str]:
+    """Inner text of every TOP-LEVEL `[...]` group in `text`.
 
-    Cells are "…"/`…` strings or <>…</> JSX fragments; a naive .split(',')
-    breaks on the comma inside "1,048,576 tokens" and the {"$"} braces must
-    not open a quote state while inside a fragment. String cells come back
-    unquoted; fragments stay wrapped so the money regex can see them.
+    A table's rows arrive as ONE array of arrays (`rows:[[...],[...]]`), so this
+    yields each row text for `_split_mdx_cells`. Depth- and quote-aware for the
+    same reason that splitter is: a row holds `_jsx(...)` calls with brace
+    arguments and template strings, and a naive regex stops at the first `]`
+    inside one of them.
+    """
+    groups: list[str] = []
+    i, n = 0, len(text)
+    while i < n:
+        if text[i] != '[':
+            i += 1
+            continue
+        depth, quote, j = 0, None, i
+        while j < n:
+            c = text[j]
+            if quote:
+                if c == quote:
+                    quote = None
+            elif c in '`"\'':
+                quote = c
+            elif c == '[':
+                depth += 1
+            elif c == ']':
+                depth -= 1
+                if depth == 0:
+                    groups.append(text[i + 1 : j])
+                    break
+            j += 1
+        i = j + 1
+    return groups
+
+
+def _split_mdx_cells(row_text: str) -> list[str]:
+    """Split one table row into cells on TOP-LEVEL commas.
+
+    A cell is a quoted/template string, a `<>…</>` fragment or an `_jsx(…)`
+    call, so a naive `.split(',')` breaks on the comma inside "1,048,576 tokens"
+    and on the one between an `_jsx` call's arguments. Brackets, braces and
+    quotes all nest, so the split tracks depth and quote state. String cells
+    come back unquoted.
     """
     cells: list[str] = []
     buf: list[str] = []
+    depth = 0
+    quote: str | None = None
 
     def push() -> None:
         cell = ''.join(buf).strip()
@@ -752,130 +790,131 @@ def _split_mdx_cells(row_text: str) -> list[str]:
             cell = cell[1:-1]
         cells.append(cell)
 
-    i, n = 0, len(row_text)
-    quote: str | None = None
-    in_frag = False
-    while i < n:
-        if in_frag:
-            if row_text.startswith('</>', i):
-                buf.append('</>')
-                in_frag = False
-                i += 3
-            else:
-                buf.append(row_text[i])
-                i += 1
-            continue
+    for c in row_text:
         if quote:
-            buf.append(row_text[i])
-            if row_text[i] == quote:
+            buf.append(c)
+            if c == quote:
                 quote = None
-            i += 1
             continue
-        if row_text.startswith('<>', i):
-            buf.append('<>')
-            in_frag = True
-            i += 2
-            continue
-        c = row_text[i]
-        if c in '"\'':
+        if c in '"\'`':
             quote = c
             buf.append(c)
-            i += 1
             continue
-        if c == ',':
+        if c in '([{':
+            depth += 1
+        elif c in ')]}':
+            depth -= 1
+        elif c == ',' and depth == 0:
             push()
             buf = []
-            i += 1
             continue
         buf.append(c)
-        i += 1
     if buf:
         push()
     return cells
 
 
 class MoonshotSource(Source):
-    """Kimi K3 pricing on the platform docs — the MDX rendering.
+    """Kimi token pricing on platform.kimi.ai — read from the RENDERED page.
 
-    The forum.kimi.com announcement this source used to read is DNS-dead, and
-    the pricing table now lives on platform.kimi.ai. The HTML page there is
-    client-rendered (zero <table> elements in the raw body), but the docs site
-    serves the source markdown at <url>.md, where the price table survives as
-    a server-side <DocTable> MDX block. Prices sit in JSX fragments
-    (<>{"$"}3.00</>), which `dollars` cannot see through — the fragment
-    wrapper is unwrapped before extraction.
+    The forum.kimi.com announcement this source once read is DNS-dead, and the
+    pricing table lives on platform.kimi.ai, a Mintlify site. Its markdown
+    rendering (`.md`) used to carry the table as a server-side `<DocTable>` MDX
+    block. Since the K3.1 rewrite that rendering ships `<table><tbody /></table>`
+    — the rows are gone from the markdown entirely, so `check` reported "parsed
+    0 models" for a page that renders fine in a browser.
+
+    What the browser actually gets is the page HTML, and its Next.js RSC payload
+    still carries the table as DATA:
+
+        _jsx(DocTable,{...columns:[{title:`Model`},...],rows:[[...],[...]]})
+
+    with every cell a backticked string (`$2.00 / MTok`). So this source reads
+    the HTML and walks those two arrays. The rendered `<table>` in the body is
+    the same data after hydration — it is not parsed, and cannot be: the raw
+    HTML has zero <table> elements.
+
+    Two table shapes, one per generation, both on the page today:
+      K3   Model | Input | Output | Cached Input | 5m writes | 1h writes
+      K2   Model | Input | Output | Cached Input
+    'Input' and 'Cached Input' are ADJACENT, so the cache column is excluded BY
+    NAME when picking the input column: a plain substring match bills every
+    fresh token at the cache-hit rate, a silent 10x under-billing. Of the two
+    write tiers only the 5-minute one is recorded — the page says that is what
+    applies when no TTL is requested, and the book's `cache_write` is one
+    number.
 
     The Chinese platform lists CNY rates; the USD table here is the rate
-    OpenRouter-facing consumers pay, and the book's unit is USD. Never
-    convert the CNY page through a live exchange rate.
-
-    Two table shapes, one per generation, and the 2026-10-16 page carries both:
-    K2 splits the input rate by cache outcome ('Input Price (Cache Hit)' /
-    '(Cache Miss)'), while K3 publishes a single 'Input Price' plus two
-    cache-WRITE tiers. Matching only the K2 shape read the K2 table and skipped
-    the K3 one, so `check` reported three rows parsed and `kimi-k3` gone —
-    exactly the wrong-rows failure a "parsed 0 models" guardrail cannot see.
-    Of the two write tiers only the 5-minute one is recorded: the page says
-    that is what applies when no TTL is requested, and the book's `cache_write`
-    is one number.
+    OpenRouter-facing consumers pay, and the book's unit is USD. Never convert
+    the CNY page through a live exchange rate.
     """
 
     name = 'moonshot'
-    url = 'https://platform.kimi.ai/docs/pricing/chat-k3.md'
-    accept = 'text/markdown,text/plain,*/*'
-    expect = ('kimi-k3',)
+    url = 'https://platform.kimi.ai/docs/pricing/chat'
+    accept = 'text/html,*/*'
+    # `kimi-k3.1-pro` is the flagship since 2026-10-16. A page that parses rows
+    # but lacks it has lost the K3 table again — the exact failure the previous
+    # selector produced, and one no row count would have caught.
+    expect = ('kimi-k3.1-pro', 'kimi-k3')
 
-    # Terminator is line-anchored: the closer sits on its own line (`]}` then
-    # `/>`), while every price fragment `<>{"$"}3.00</>` ends mid-line with
-    # `/>` — a bare `(.*?)/>` would stop at the first fragment.
-    _DOCTABLE = re.compile(r'<DocTable\b(.*?)^\s*/>', re.DOTALL | re.MULTILINE)
-    _TITLE = re.compile(r'title:\s*"([^"]+)"')
-    # <>{"$"}3.00</> -> $3.00, so dollars() can see it.
-    _FRAGMENT = re.compile(r'<>\{\s*"\$"\s*\}\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*</>')
+    # One `_jsx(DocTable,{...})` call ends at `]]})` — the rows array closing
+    # immediately before the component call does. Nothing inside a row can
+    # produce that sequence: cells end in a backtick or `})`, never `]})`.
+    _TABLE = re.compile(r'_jsx\(DocTable,\{(.*?)\]\}\)', re.DOTALL)
+    _COLUMNS = re.compile(r'columns:\[(.*?)\],rows:\[', re.DOTALL)
+    # Every column object closes with ,width:`15%`} — the one brace-terminated
+    # field after the label, and the split point that keeps a Tooltip's tip
+    # text in the same chunk as the label it wraps.
+    _WIDTH = re.compile(r',width:`[^`]*`\}')
+    _LABEL = re.compile(r'(?:title|children):`([^`]+)`')
+    _NAME = re.compile(r'children:`([^`]+)`')
+
 
     def parse(self, body: str) -> dict[str, Price]:
         out: dict[str, Price] = {}
-        for block in self._DOCTABLE.findall(body):
-            header = [t.lower() for t in self._TITLE.findall(block)]
+        for block in self._TABLE.findall(body):
+            m = self._COLUMNS.search(block)
+            if m is None:
+                continue
+            header = [
+                labels[-1].strip().lower()
+                for labels in (
+                    self._LABEL.findall(chunk)
+                    for chunk in self._WIDTH.split(m.group(1))
+                )
+                if labels
+            ]
             c_model = self._col(header, 'model')
-            c_out = self._col(header, 'output', 'price')
-            c_hit = self._col(header, 'cache hit')
-            if c_hit is None:
-                c_hit = self._col(header, 'cached', 'input')
-            c_miss = self._col(header, 'cache miss')
-            if c_miss is None:
-                # K3 shape. `cache` has to be excluded: 'Cached Input Price'
-                # also contains 'input' and 'price' and sits BEFORE the real
-                # column, so a plain substring search would record every fresh
-                # token at the cache-hit rate — a silent 10x under-billing.
-                c_miss = self._col(header, 'input', 'price', without=('cache',))
-            c_write = self._col(header, 'cache write', 'ttl 5')
-            if c_model is None or c_miss is None or c_out is None:
+            c_out = self._col(header, 'output')
+            c_in = self._col(header, 'input', without=('cache',))
+            if c_model is None or c_in is None or c_out is None:
                 continue
+            c_hit = self._col(header, 'cached', 'input')
+            c_write = self._col(header, '5m', 'write')
 
-            rows = re.search(r'rows=\{\[(.*?)\]\}', block, re.DOTALL)
-            if rows is None:
-                continue
-            for row_text in re.findall(r'\[(.*?)\]', rows.group(1), re.DOTALL):
-                cells = _split_mdx_cells(row_text)
-                if len(cells) <= max(c_model, c_miss, c_out):
+            for row in _jsx_groups(block[m.end() :]):
+                cells = _split_mdx_cells(row)
+                if not cells:
                     continue
-                model_id = cells[c_model].strip().lower()
-                inp = self._money(cells[c_miss])
-                outp = self._money(cells[c_out])
+                names = self._NAME.findall(cells[0])
+                if not names:
+                    continue
+                model_id = names[-1].strip().lower()
+                rates = [self._money(cell) for cell in cells]
+                inp, outp = rates[c_in], rates[c_out]
                 if inp is None or outp is None:
                     continue
                 out[model_id] = Price(
                     input=inp,
                     output=outp,
                     cache_read=(
-                        self._money(cells[c_hit])
-                        if c_hit is not None and c_hit < len(cells)
+                        rates[c_hit]
+                        if c_hit is not None and c_hit < len(rates)
                         else None
                     ),
                     cache_write=(
-                        self._money(cells[c_write])
-                        if c_write is not None and c_write < len(cells)
+                        rates[c_write]
+                        if c_write is not None and c_write < len(rates)
                         else None
                     ),
                 )
@@ -887,8 +926,8 @@ class MoonshotSource(Source):
     ) -> int | None:
         """First column whose header contains every needle and no `without`.
 
-        `_column_index` cannot express 'input price, but not cached input
-        price', and in the K3 table the two are adjacent.
+        `_column_index` cannot express 'input, but not cached input', and in the
+        K3 table the two are adjacent.
         """
         for i, h in enumerate(header):
             if all(n in h for n in needles) and not any(w in h for w in without):
@@ -896,7 +935,8 @@ class MoonshotSource(Source):
         return None
 
     def _money(self, cell: str) -> float | None:
-        return dollars(self._FRAGMENT.sub(r'$\1', cell.strip()))
+        return dollars(cell.strip())
+
 
 
 class ZaiSource(Source):

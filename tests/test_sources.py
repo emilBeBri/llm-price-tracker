@@ -371,117 +371,70 @@ def test_deepseek_url_keeps_its_trailing_slash():
 
 
 # --------------------------------------------------------------------------- #
-# Moonshot: the HTML page is client-rendered (zero <table> elements), so the
-# source reads the docs site's markdown rendering, where the price table
-# survives as a server-side <DocTable> MDX block. Prices sit in JSX fragments
-# (<>{"$"}3.00</>); the component definition above must NOT be mistaken for a
-# table. The Chinese platform's CNY table must not be mixed into this
-# USD-only book.
+# Moonshot: platform.kimi.ai is a Mintlify site. Its markdown rendering (`.md`)
+# used to carry the price table as a server-side <DocTable> MDX block; since the
+# K3.1 rewrite that rendering ships an EMPTY <tbody /> and the rows survive only
+# in the page HTML's Next.js RSC payload, as `_jsx(DocTable,{columns:[…],
+# rows:[[…]]})` with backticked cells. Both fixtures below are excerpts of what
+# the wire actually carries. The Chinese platform's CNY table must not be mixed
+# into this USD-only book.
 # --------------------------------------------------------------------------- #
-MOONSHOT_MD = r"""
-> ## Documentation Index
-> Fetch the complete documentation index at: https://platform.kimi.ai/docs/llms.txt
-# Flagship Model Kimi K3 Pricing
-export const DocTable = ({columns = [], rows = []}) => {
-  return <div className="doc-table-wrap">
-      <table className="doc-table">
-        {columns.length > 0 ? <colgroup>
-            {columns.map((column, index) => <col key={index} style={column.width ? {
-    width: column.width
-  } : undefined} />)}
-          </colgroup> : null}
-        <thead>
-          <tr>
-            {columns.map((column, index) => <th key={index}>{column.title}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, rowIndex) => <tr key={rowIndex}>
-              {row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}
-            </tr>)}
-        </tbody>
-      </table>
-    </div>;
-};
-## Product Pricing
-**Explanation: Prices exclude applicable taxes.**
-<DocTable
-  columns={[
-{ title: "Model", width: "24%" },
-{ title: "Unit", width: "12%" },
-{ title: "Input Price (Cache Hit)", width: "16%" },
-{ title: "Input Price (Cache Miss)", width: "16%" },
-{ title: "Output Price", width: "14%" },
-{ title: "Context Window", width: "18%" },
-]}
-  rows={[
-["kimi-k3", "1M tokens", <>{"$"}0.30</>, <>{"$"}3.00</>, <>{"$"}15.00</>, "1,048,576 tokens"],
-]}
-/>
+MOONSHOT_RSC = r"""
+<script>self.__next_f.push([1,"…function _createMdxContent(props){const _components={a:`a`,code:`code`,p:`p`,strong:`strong`,…props.components},{Heading,Note,Tooltip,_MdxComponentBoundary}=_components;
+_jsx(Heading,{level:`3`,id:`k3-series-models`,children:`K3 Series Models`}),
+_jsx(_MdxComponentBoundary,{name:`DocTable`,children:_jsx(DocTable,{className:`doc-table-bordered`,corner:{top:`Model`,bottom:`Name`},groups:[{title:`Base tokens`,span:2},{title:`Prompt caching`,span:3}],columns:[{title:`Model`,width:`25%`},{title:`Input`,width:`15%`},{title:`Output`,width:`15%`},{title:_jsx(Tooltip,{tip:`Cached input is billed at this rate; each hit refreshes the TTL.`,children:`Cached Input`}),width:`15%`},{title:_jsx(Tooltip,{tip:`Writing a prompt prefix with a 5-minute TTL; the default tier.`,children:`5m writes`}),width:`15%`},{title:_jsx(Tooltip,{tip:`Writing a prompt prefix with a 1-hour TTL.`,children:`1h writes`}),width:`15%`}],rows:[[_jsx(_components.a,{href:`/guide/kimi-k3-1-pro-quickstart`,children:`kimi-k3.1-pro`}),`$2.00 / MTok`,`$10.00 / MTok`,`$0.20 / MTok`,`$2.00 / MTok`,`$4.00 / MTok`],[_jsx(_components.a,{href:`/guide/kimi-k3-1-pro-quickstart`,children:`kimi-k3.1-pro-highspeed`}),`$4.00 / MTok`,`$20.00 / MTok`,`$0.20 / MTok`,`$4.00 / MTok`,`$8.00 / MTok`],[_jsx(_components.a,{href:`/guide/kimi-k3-quickstart`,children:`kimi-k3`}),`$3.00 / MTok`,`$15.00 / MTok`,`$0.30 / MTok`,`$3.00 / MTok`,`$6.00 / MTok`]]})}),
+_jsx(_MdxComponentBoundary,{name:`DocTable`,children:_jsx(DocTable,{className:`doc-table-bordered`,corner:{top:`Model`,bottom:`Name`},groups:[{title:`Base tokens`,span:2},{title:`Prompt caching`,span:1}],columns:[{title:`Model`,width:`34%`},{title:`Input`,width:`22%`},{title:`Output`,width:`22%`},{title:_jsx(Tooltip,{tip:`Cached input is billed at this rate.`,children:`Cached Input`}),width:`22%`}],rows:[[_jsx(_components.a,{href:`/guide/kimi-k2-7-code-quickstart`,children:`kimi-k2.7-code`}),`$0.95 / MTok`,`$4.00 / MTok`,`$0.19 / MTok`],[_jsx(_components.a,{href:`/guide/kimi-k2-6-quickstart`,children:`kimi-k2.6`}),`$0.95 / MTok`,`$4.00 / MTok`,`$0.16 / MTok`]]})})
+"])
+</script>
 """
 
 
-def test_moonshot_reads_kimi_k3_usd_rates_from_the_doctable_block():
-    price = MoonshotSource().parse(MOONSHOT_MD)['kimi-k3']
-    assert (price.input, price.output, price.cache_read) == (3.0, 15.0, 0.3)
+def test_moonshot_reads_the_flagship_and_its_highspeed_twin():
+    prices = MoonshotSource().parse(MOONSHOT_RSC)
+    pro = prices['kimi-k3.1-pro']
+    assert (pro.input, pro.output, pro.cache_read) == (2.0, 10.0, 0.2)
+    # The 5-minute write tier, which the page says applies by default. The 1h
+    # column ($4.00) is a different TTL the book has no field for.
+    assert pro.cache_write == 2.0
+    fast = prices['kimi-k3.1-pro-highspeed']
+    assert (fast.input, fast.output, fast.cache_write) == (4.0, 20.0, 4.0)
 
 
-def test_moonshot_requires_the_doctable_not_merely_dollar_amounts():
-    assert MoonshotSource().parse('<p>Kimi K3 is 50% off from $99.</p>') == {}
-
-
-# The 2026-10-16 rewrite: K3 moved to its own table with cache-WRITE tiers and
-# a single 'Input Price', while the K2 shape below it still splits input by
-# cache outcome. The old selector only knew the second shape, so it parsed the
-# K2 table and silently dropped the flagship — `check` said "parsed 3 rows but
-# none match ['kimi-k3']", which is the good version of this bug.
-MOONSHOT_REWRITTEN_MD = r"""
-<DocTable
-  columns={[
-{ title: "Model", width: "12%" },
-{ title: "Unit", width: "10%" },
-{ title: "Cache Write Price (TTL 5min)", width: "13%" },
-{ title: "Cache Write Price (TTL 1h)", width: "13%" },
-{ title: "Cached Input Price", width: "13%" },
-{ title: "Input Price", width: "13%" },
-{ title: "Output Price", width: "10%" },
-{ title: "Context Window", width: "16%" },
-]}
-  rows={[
-["kimi-k3", "1M tokens", <>{"$"}3.00</>, <>{"$"}6.00</>, <>{"$"}0.30</>, <>{"$"}3.00</>, <>{"$"}15.00</>, "1,048,576 tokens"],
-]}
-/>
-<DocTable
-  columns={[
-{ title: "Model", width: "24%" },
-{ title: "Unit", width: "12%" },
-{ title: "Input Price (Cache Hit)", width: "16%" },
-{ title: "Input Price (Cache Miss)", width: "16%" },
-{ title: "Output Price", width: "14%" },
-{ title: "Context Window", width: "18%" },
-]}
-  rows={[
-["kimi-k2.6", "1M tokens", <>{"$"}0.16</>, <>{"$"}0.95</>, <>{"$"}4.00</>, "262,144 tokens"],
-]}
-/>
-"""
-
-
-def test_moonshot_reads_the_k3_shape_with_cache_write_tiers():
-    k3 = MoonshotSource().parse(MOONSHOT_REWRITTEN_MD)['kimi-k3']
-    # Input is the plain 'Input Price' column, NOT the adjacent 'Cached Input
-    # Price' — taking the first header containing 'input' and 'price' would
-    # bill every fresh token at the cache-hit rate, a silent 10x under-billing.
-    assert (k3.input, k3.output, k3.cache_read) == (3.0, 15.0, 0.30)
-    # The 5-minute write tier is what the page says applies by default; the 1h
-    # tier is a different TTL the book has no field for.
-    assert k3.cache_write == 3.0
+def test_moonshot_input_is_not_the_adjacent_cached_input_column():
+    """'Input' and 'Cached Input' sit next to each other in both tables, so a
+    substring match on 'input' would bill every fresh token at the cache-hit
+    rate — a silent 10x under-billing on K3 and 5x on K3.1 Pro."""
+    k3 = MoonshotSource().parse(MOONSHOT_RSC)['kimi-k3']
+    assert (k3.input, k3.cache_read) == (3.0, 0.3)
 
 
 def test_moonshot_reads_both_generations_from_the_same_page():
-    prices = MoonshotSource().parse(MOONSHOT_REWRITTEN_MD)
-    assert set(prices) == {'kimi-k3', 'kimi-k2.6'}
+    prices = MoonshotSource().parse(MOONSHOT_RSC)
+    assert set(prices) == {
+        'kimi-k3.1-pro',
+        'kimi-k3.1-pro-highspeed',
+        'kimi-k3',
+        'kimi-k2.7-code',
+        'kimi-k2.6',
+    }
     assert prices['kimi-k2.6'].input == 0.95
+    # The K2 table has no write column at all.
+    assert prices['kimi-k2.6'].cache_write is None
+
+
+def test_moonshot_requires_the_table_payload_not_merely_dollar_amounts():
+    assert MoonshotSource().parse('<p>Kimi K3 is 50% off from $99.</p>') == {}
+
+
+def test_moonshot_reads_nothing_from_the_empty_markdown_rendering():
+    """The drift this parser exists for: the `.md` rendering renders every price
+    table as `<tbody />`, so it parses to ZERO models while looking successful.
+    Pinned so nobody "simplifies" the source back onto it."""
+    empty = (
+        '# Model Inference Pricing\n\n### K3 Series Models\n\n'
+        '<table>\n  <thead>\n    <tr />\n  </thead>\n\n  <tbody />\n</table>\n'
+    )
+    assert MoonshotSource().parse(empty) == {}
 
 
 # --------------------------------------------------------------------------- #

@@ -34,6 +34,9 @@ user has supplied — the agent NEVER writes into raw/.
 - [[image-models-record-the-image-modality-row]] — an image model publishes a
   rate per modality; why the book takes the published Image row and not the
   text-in/image-out blend a generation call actually pays
+- [[the-markdown-rendering-can-empty-its-tables]] — Mintlify's `.md` ships
+  `<tbody />` for a table the HTML still carries in its RSC payload; read the
+  payload, and grep the HTML for the model id before calling a source dead
 
 ## alerting & exit codes
 - [[alert-tiers-are-not-data-tiers]] — watched vs background drift, `watch.toml`,

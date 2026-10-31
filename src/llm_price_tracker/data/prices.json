@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-29",
+  "updated_at": "2026-10-31",
   "models": {
     "babbage-002": {
       "id": "babbage-002",
@@ -1620,6 +1620,21 @@
         "zai"
       ]
     },
+    "glm-5.3-flashx-legal": {
+      "id": "glm-5.3-flashx-legal",
+      "vendor": "zai",
+      "tiers": {
+        "standard": {
+          "input": 0.37,
+          "output": 1.25,
+          "cache_read": 0.075,
+          "effective_from": "2026-10-31"
+        }
+      },
+      "sources": [
+        "zai"
+      ]
+    },
     "glm-ocr": {
       "id": "glm-ocr",
       "vendor": "zai",
@@ -2024,14 +2039,25 @@
           "input": 0.2,
           "output": 1.2,
           "cache_read": 0.02,
-          "cache_write": 0.25,
-          "effective_from": "2026-08-01"
+          "effective_from": "2026-10-31"
         }
       },
       "sources": [
         "llm-prices.com",
-        "openai"
-      ]
+        "openai",
+        "openrouter"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 0.2,
+            "output": 1.2,
+            "cache_read": 0.02,
+            "cache_write": 0.25,
+            "effective_from": "2026-08-01"
+          }
+        ]
+      }
     },
     "gpt-5.6-sol": {
       "id": "gpt-5.6-sol",
@@ -2041,8 +2067,7 @@
           "input": 4.0,
           "output": 20.0,
           "cache_read": 0.4,
-          "cache_write": 5.0,
-          "effective_from": "2026-09-02"
+          "effective_from": "2026-10-31"
         }
       },
       "sources": [
@@ -2058,6 +2083,13 @@
             "cache_read": 0.5,
             "cache_write": 6.25,
             "effective_from": "2026-08-01"
+          },
+          {
+            "input": 4.0,
+            "output": 20.0,
+            "cache_read": 0.4,
+            "cache_write": 5.0,
+            "effective_from": "2026-09-02"
           }
         ]
       }
@@ -2070,14 +2102,25 @@
           "input": 2.0,
           "output": 12.0,
           "cache_read": 0.2,
-          "cache_write": 2.5,
-          "effective_from": "2026-08-01"
+          "effective_from": "2026-10-31"
         }
       },
       "sources": [
         "llm-prices.com",
-        "openai"
-      ]
+        "openai",
+        "openrouter"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 2.0,
+            "output": 12.0,
+            "cache_read": 0.2,
+            "cache_write": 2.5,
+            "effective_from": "2026-08-01"
+          }
+        ]
+      }
     },
     "gpt-6-astra": {
       "id": "gpt-6-astra",
@@ -2087,13 +2130,25 @@
           "input": 10.0,
           "output": 50.0,
           "cache_read": 1.0,
-          "cache_write": 12.5,
-          "effective_from": "2026-09-04"
+          "effective_from": "2026-10-31"
         }
       },
       "sources": [
-        "openai"
-      ]
+        "llm-prices.com",
+        "openai",
+        "openrouter"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 10.0,
+            "output": 50.0,
+            "cache_read": 1.0,
+            "cache_write": 12.5,
+            "effective_from": "2026-09-04"
+          }
+        ]
+      }
     },
     "gpt-6-luna": {
       "id": "gpt-6-luna",
@@ -2103,15 +2158,25 @@
           "input": 0.1,
           "output": 0.5,
           "cache_read": 0.01,
-          "cache_write": 0.125,
-          "effective_from": "2026-09-26"
+          "effective_from": "2026-10-31"
         }
       },
       "sources": [
         "llm-prices.com",
         "openai",
         "openrouter"
-      ]
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 0.1,
+            "output": 0.5,
+            "cache_read": 0.01,
+            "cache_write": 0.125,
+            "effective_from": "2026-09-26"
+          }
+        ]
+      }
     },
     "gpt-6-sol": {
       "id": "gpt-6-sol",
@@ -2121,15 +2186,25 @@
           "input": 2.0,
           "output": 10.0,
           "cache_read": 0.2,
-          "cache_write": 2.5,
-          "effective_from": "2026-09-26"
+          "effective_from": "2026-10-31"
         }
       },
       "sources": [
         "llm-prices.com",
         "openai",
         "openrouter"
-      ]
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 2.0,
+            "output": 10.0,
+            "cache_read": 0.2,
+            "cache_write": 2.5,
+            "effective_from": "2026-09-26"
+          }
+        ]
+      }
     },
     "gpt-6.1-sol": {
       "id": "gpt-6.1-sol",
@@ -2139,8 +2214,35 @@
           "input": 2.0,
           "output": 10.0,
           "cache_read": 0.1,
-          "cache_write": 2.5,
-          "effective_from": "2026-10-16"
+          "effective_from": "2026-10-31"
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "openai",
+        "openrouter"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 2.0,
+            "output": 10.0,
+            "cache_read": 0.1,
+            "cache_write": 2.5,
+            "effective_from": "2026-10-16"
+          }
+        ]
+      }
+    },
+    "gpt-6.1-terra": {
+      "id": "gpt-6.1-terra",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 1.0,
+          "output": 5.0,
+          "cache_read": 0.05,
+          "effective_from": "2026-10-31"
         }
       },
       "sources": [
@@ -2320,6 +2422,41 @@
           }
         ]
       }
+    },
+    "kimi-k3.1-pro": {
+      "id": "kimi-k3.1-pro",
+      "vendor": "moonshot",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 10.0,
+          "cache_read": 0.2,
+          "cache_write": 2.0,
+          "effective_from": "2026-10-31"
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "moonshot",
+        "openrouter"
+      ]
+    },
+    "kimi-k3.1-pro-highspeed": {
+      "id": "kimi-k3.1-pro-highspeed",
+      "vendor": "moonshot",
+      "tiers": {
+        "standard": {
+          "input": 4.0,
+          "output": 20.0,
+          "cache_read": 0.2,
+          "cache_write": 4.0,
+          "effective_from": "2026-10-31"
+        }
+      },
+      "sources": [
+        "llm-prices.com",
+        "moonshot"
+      ]
     },
     "o1": {
       "id": "o1",
