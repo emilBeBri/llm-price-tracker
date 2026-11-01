@@ -1,6 +1,248 @@
 {
-  "updated_at": "2026-10-31",
+  "updated_at": "2026-11-01",
   "models": {
+    "apertus-70b": {
+      "id": "apertus-70b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.44,
+          "output": 2.31,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "regolo"
+      ]
+    },
+    "brick-complexity-pro": {
+      "id": "brick-complexity-pro",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.11,
+          "output": 0.44,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "regolo"
+      ]
+    },
+    "brick-v1-beta": {
+      "id": "brick-v1-beta",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.0,
+          "output": 0.0,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "regolo"
+      ]
+    },
+    "gemma4-31b": {
+      "id": "gemma4-31b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.44,
+          "output": 2.31,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "regolo"
+      ]
+    },
+    "glm5.2": {
+      "id": "glm5.2",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 2.2,
+          "output": 5.72,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "regolo"
+      ]
+    },
+    "gpt-oss-120b": {
+      "id": "gpt-oss-120b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 1.1,
+          "output": 4.62,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "openrouter",
+        "regolo"
+      ]
+    },
+    "gpt-oss-20b": {
+      "id": "gpt-oss-20b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.11,
+          "output": 0.462,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "openrouter",
+        "regolo"
+      ]
+    },
+    "meta-llama/llama-prompt-guard-2-22m": {
+      "id": "meta-llama/llama-prompt-guard-2-22m",
+      "vendor": "groq",
+      "tiers": {
+        "standard": {
+          "input": 0.03,
+          "output": 0.03,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "groq"
+      ]
+    },
+    "meta-llama/llama-prompt-guard-2-86m": {
+      "id": "meta-llama/llama-prompt-guard-2-86m",
+      "vendor": "groq",
+      "tiers": {
+        "standard": {
+          "input": 0.04,
+          "output": 0.04,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "groq"
+      ]
+    },
+    "mistral-small-4-119b": {
+      "id": "mistral-small-4-119b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.55,
+          "output": 2.31,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "regolo"
+      ]
+    },
+    "openai/gpt-oss-120b": {
+      "id": "openai/gpt-oss-120b",
+      "vendor": "groq",
+      "tiers": {
+        "standard": {
+          "input": 0.15,
+          "output": 0.6,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "groq"
+      ]
+    },
+    "openai/gpt-oss-20b": {
+      "id": "openai/gpt-oss-20b",
+      "vendor": "groq",
+      "tiers": {
+        "standard": {
+          "input": 0.075,
+          "output": 0.3,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "groq"
+      ]
+    },
+    "openai/gpt-oss-safeguard-20b": {
+      "id": "openai/gpt-oss-safeguard-20b",
+      "vendor": "groq",
+      "tiers": {
+        "standard": {
+          "input": 0.075,
+          "output": 0.3,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "groq"
+      ]
+    },
+    "qwen/qwen3.8-27b": {
+      "id": "qwen/qwen3.8-27b",
+      "vendor": "groq",
+      "tiers": {
+        "standard": {
+          "input": 0.8,
+          "output": 4.0,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "groq"
+      ]
+    },
+    "qwen3.5-122b": {
+      "id": "qwen3.5-122b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 1.1,
+          "output": 4.62,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "regolo"
+      ]
+    },
+    "qwen3.5-9b": {
+      "id": "qwen3.5-9b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.077,
+          "output": 0.385,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "openrouter",
+        "regolo"
+      ]
+    },
+    "qwen3.8-27b": {
+      "id": "qwen3.8-27b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.55,
+          "output": 2.31,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "openrouter",
+        "regolo"
+      ]
+    },
     "babbage-002": {
       "id": "babbage-002",
       "vendor": "openai",

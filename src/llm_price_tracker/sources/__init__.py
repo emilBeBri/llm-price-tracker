@@ -18,8 +18,10 @@ from .vendors import (
     AnthropicSource,
     DeepSeekSource,
     GoogleSource,
+    GroqSource,
     MoonshotSource,
     OpenAISource,
+    RegoloSource,
     ZaiSource,
 )
 
@@ -29,10 +31,12 @@ __all__ = [
     'AzureImageSource',
     'DeepSeekSource',
     'GoogleSource',
+    'GroqSource',
     'LlmPricesSource',
     'MoonshotSource',
     'OpenAISource',
     'OpenRouterSource',
+    'RegoloSource',
     'Source',
     'SourceResult',
     'ZaiSource',
@@ -51,6 +55,8 @@ SOURCES: tuple[Source, ...] = (
     DeepSeekSource(),
     MoonshotSource(),
     ZaiSource(),
+    GroqSource(),
+    RegoloSource(),
     LlmPricesSource(),
     OpenRouterSource(),
 )

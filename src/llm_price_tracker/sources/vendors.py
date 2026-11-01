@@ -1016,3 +1016,146 @@ class ZaiSource(Source):
 
     def _money(self, cell: str) -> float | None:
         return dollars(self._STRUCK.sub('', cell))
+
+
+# Regolo quotes EUR per 1M tokens and the book is USD, so the conversion has to
+# happen at the parse edge — a rate recorded in the wrong currency is a wrong
+# rate, not a convertible one. 1.10 is the multiplier bebri-chat's hand-written
+# rows used on 2026-07-22, and keeping the two identical is the point: the day
+# this constant and the vendor's euro price disagree with those rows is the day
+# somebody looks. Revise it when EUR/USD drifts more than a couple of percent.
+EUR_USD = 1.10
+
+_EUR_AMOUNT = re.compile(r'€\s*([0-9][0-9,]*(?:\.[0-9]+)?)')
+
+
+def _euros(cell: str) -> float | None:
+    m = _EUR_AMOUNT.search(cell)
+    return float(m.group(1).replace(',', '')) if m else None
+
+
+def _children(node) -> list:
+    """A node's element children, in order.
+
+    selectolax offers `css('> div')` only through its lexbor engine and raises
+    `Bad CSS Selectors` on modest, so the walk is explicit.
+    """
+    out = []
+    child = node.child
+    while child is not None:
+        out.append(child)
+        child = child.next
+    return out
+
+
+class GroqSource(Source):
+    """Groq's model table on console.groq.com — NOT groq.com/pricing.
+
+    The marketing pricing page is a client-rendered Next.js shell: 55KB of
+    markup, no model ids, the table fetched after mount. It has no scrapable
+    payload and never will, so this source reads the Supported Models page
+    instead, which renders the same rates server-side, one `<tr>` per model and
+    the rate in a `$0.15` span carrying a nested `input`/`output` chip.
+
+    Two traps, both live today:
+
+    * Rows priced in something other than tokens — Whisper `$0.111 per hour`,
+      the Orpheus voices `$40 per 1M characters` — have no input/output chip
+      and are dropped. Booking an hourly rate as a per-Mtok rate would make an
+      audio model look like the cheapest text model on the menu.
+    * A row whose price is negotiated (`Contact Sales`, which is what the
+      Llama enterprise rows say) has no amount either, so it is dropped rather
+      than recorded as free. Those ids keep whatever the book already had.
+
+    Only the id and the two token rates are read. Context windows, speeds and
+    rate limits are on the same row and are somebody else's data.
+    """
+
+    name = 'groq'
+    url = 'https://console.groq.com/docs/models'
+    accept = 'text/html,*/*'
+    expect = ('openai/gpt-oss-120b', 'openai/gpt-oss-20b')
+
+    def parse(self, body: str) -> dict[str, Price]:
+        tree = HTMLParser(body)
+        out: dict[str, Price] = {}
+        for tr in tree.css('tr'):
+            node = tr.css_first('div[id]')
+            if node is None:
+                continue
+            model_id = (node.attributes.get('id') or '').strip()
+            if not model_id:
+                continue
+            rates: dict[str, float] = {}
+            # The chip (`input` / `output`) is the INNER span and the amount is
+            # its parent's text. selectolax's `css_first` matches the node
+            # itself before its descendants, so asking a price span for 'span'
+            # hands back the price span — find the chips first, then walk up.
+            for chip in tr.css('span'):
+                unit = chip.text(strip=True).lower()
+                if unit not in ('input', 'output'):
+                    continue
+                amount = dollars(
+                    chip.parent.text(strip=True) if chip.parent else unit
+                )
+                if amount is not None:
+                    rates[unit] = amount
+            if 'input' in rates and 'output' in rates:
+                out[model_id] = Price(
+                    input=rates['input'], output=rates['output']
+                )
+        return out
+
+
+class RegoloSource(Source):
+    """Regolo's pay-as-you-go table — CSS grid rows in EUR, no cache column.
+
+    The table is not a `<table>`. Each row is a `div` whose inline style declares
+    `grid-template-columns: repeat(4, …)` and whose four children are: model id,
+    euro input, euro output, and a plan-availability cell that reads
+    `Included` / `Core · Boost · Pro · Scale`.
+
+    That fourth cell is the trap: 'Included' means the model is in every
+    subscription plan, NOT that cache reads are free. Reading it as a cache
+    price would book 0.00 cache reads for every Regolo model — free input for
+    any session that caches.
+
+    Ids are the vendor's own (`glm5.2`, `qwen3.5-122b`), which is what bebri-chat
+    resolves against; a row the vendor renames therefore drops out of the book
+    instead of quietly keeping the old id's numbers.
+    """
+
+    name = 'regolo'
+    url = 'https://regolo.ai/pricing'
+    accept = 'text/html,*/*'
+    expect = ('gpt-oss-120b', 'qwen3.5-122b')
+
+    _ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9._:/-]*')
+
+    def parse(self, body: str) -> dict[str, Price]:
+        tree = HTMLParser(body)
+        out: dict[str, Price] = {}
+        for row in tree.css('div'):
+            style = row.attributes.get('style') or ''
+            if 'grid-template-columns' not in style or 'repeat(4' not in style:
+                continue
+            # Direct children only: `row.css('div')` matches the row itself
+            # first, which turns the first cell into the whole row's text.
+            cells = [
+                child.text(strip=True)
+                for child in _children(row)
+                if child.tag == 'div'
+            ]
+            if len(cells) != 4:
+                continue
+            model_id, in_cell, out_cell, _plans = cells
+            if not self._ID.fullmatch(model_id):
+                continue
+            inp, outp = _euros(in_cell), _euros(out_cell)
+            if inp is None or outp is None:
+                continue
+            out[model_id] = Price(
+                input=round(inp * EUR_USD, 4), output=round(outp * EUR_USD, 4)
+            )
+        return out
+

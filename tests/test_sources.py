@@ -14,14 +14,16 @@ from llm_price_tracker.sources import (
     AnthropicSource,
     DeepSeekSource,
     GoogleSource,
+    GroqSource,
     LlmPricesSource,
     MoonshotSource,
     OpenAISource,
     OpenRouterSource,
+    RegoloSource,
     ZaiSource,
 )
 from llm_price_tracker.sources.base import Source, SourceResult, dollars
-from llm_price_tracker.sources.vendors import _weekdays
+from llm_price_tracker.sources.vendors import EUR_USD, _weekdays
 
 
 def test_dollars_takes_the_first_amount():
@@ -435,6 +437,132 @@ def test_moonshot_reads_nothing_from_the_empty_markdown_rendering():
         '<table>\n  <thead>\n    <tr />\n  </thead>\n\n  <tbody />\n</table>\n'
     )
     assert MoonshotSource().parse(empty) == {}
+
+
+# --------------------------------------------------------------------------- #
+# Groq: the marketing pricing page is a client-rendered shell with no payload;
+# the console's Supported Models page carries the same rates server-side, mixed
+# with rows priced per hour and per character.
+# --------------------------------------------------------------------------- #
+GROQ_HTML = """
+<table><tbody>
+  <tr>
+    <td><div id="llama-3.3-70b-versatile" class="flex flex-col">
+      <span class="font-mono">llama-3.3-70b-versatile</span></div></td>
+    <td><div class="flex flex-col text-sm text-muted-foreground">
+      <span>Contact</span><span>Sales</span></div></td>
+  </tr>
+  <tr>
+    <td><div id="openai/gpt-oss-120b" class="flex flex-col">
+      <span class="font-mono">openai/gpt-oss-120b</span></div></td>
+    <td><div class="flex flex-col text-sm">
+      <span>$0.15<!-- --> <span class="text-muted-foreground text-xs">input</span></span>
+      <span>$0.60<!-- --> <span class="text-muted-foreground text-xs">output</span></span>
+    </div></td>
+  </tr>
+  <tr>
+    <td><div id="openai/gpt-oss-20b" class="flex flex-col">
+      <span class="font-mono">openai/gpt-oss-20b</span></div></td>
+    <td><div class="flex flex-col text-sm">
+      <span>$0.075<!-- --> <span class="text-muted-foreground text-xs">input</span></span>
+      <span>$0.30<!-- --> <span class="text-muted-foreground text-xs">output</span></span>
+    </div></td>
+  </tr>
+  <tr>
+    <td><div id="whisper-large-v3" class="flex flex-col">
+      <span class="font-mono">whisper-large-v3</span></div></td>
+    <td><div class="flex flex-col text-sm">
+      <span>$0.111<!-- --> <span class="text-muted-foreground text-xs">per hour</span></span>
+    </div></td>
+  </tr>
+  <tr>
+    <td><div id="canopylabs/orpheus-v1-english" class="flex flex-col">
+      <span class="font-mono">canopylabs/orpheus-v1-english</span></div></td>
+    <td><div class="flex flex-col text-sm">
+      <span>$22.00<!-- --> <span class="text-muted-foreground text-xs">per 1M characters</span></span>
+    </div></td>
+  </tr>
+</tbody></table>
+"""
+
+
+def test_groq_reads_the_token_priced_rows_and_nothing_else():
+    prices = GroqSource().parse(GROQ_HTML)
+    assert set(prices) == {'openai/gpt-oss-120b', 'openai/gpt-oss-20b'}
+    assert (prices['openai/gpt-oss-120b'].input, prices['openai/gpt-oss-120b'].output) == (
+        0.15,
+        0.60,
+    )
+    # An hourly voice/audio rate booked as a token rate would make Whisper look
+    # like the cheapest text model on the menu; a `Contact Sales` row booked at
+    # all would look free.
+    assert 'whisper-large-v3' not in prices
+    assert 'canopylabs/orpheus-v1-english' not in prices
+    assert 'llama-3.3-70b-versatile' not in prices
+
+
+def test_groq_requires_a_row_with_both_token_rates():
+    assert GroqSource().parse('<p>Grab a plan from $9.</p>') == {}
+    # An input-only row (a partial render) is not a price.
+    assert (
+        GroqSource().parse(
+            '<table><tr><td><div id="x/y"></div></td>'
+            '<td><span>$1<!-- --> <span>input</span></span></td></tr></table>'
+        )
+        == {}
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Regolo: a CSS-grid pseudo-table in EUR, whose fourth column reads `Included`
+# and means plan availability, not a free cache read.
+# --------------------------------------------------------------------------- #
+REGOLO_HTML = """
+<div class="grid" style="grid-template-columns: repeat(4, minmax(0,1fr));">
+  <div class="py-2">Model</div>
+  <div class="py-2">Input cost per 1M tokens</div>
+  <div class="py-2">Output cost per 1M tokens</div>
+  <div class="py-2">Core · Boost · Pro · Scale</div>
+</div>
+<div class="grid hover:bg-white/5" style="grid-template-columns: repeat(4, minmax(0,1fr));">
+  <div class="px-3 py-2 font-medium text-white">glm5.2</div>
+  <div class="px-3 py-2 flex items-center">€2.00</div>
+  <div class="px-3 py-2 flex items-center">€5.20</div>
+  <div class="px-3 py-2 flex items-center text-green-400">Included</div>
+</div>
+<div class="grid hover:bg-white/5" style="grid-template-columns: repeat(4, minmax(0,1fr));">
+  <div class="px-3 py-2 font-medium text-white">gpt-oss-20b</div>
+  <div class="px-3 py-2 flex items-center">€0.10</div>
+  <div class="px-3 py-2 flex items-center">€0.42</div>
+  <div class="px-3 py-2 flex items-center text-green-400">Included</div>
+</div>
+"""
+
+
+def test_regolo_converts_euros_at_the_documented_rate():
+    prices = RegoloSource().parse(REGOLO_HTML)
+    assert set(prices) == {'glm5.2', 'gpt-oss-20b'}
+    glm = prices['glm5.2']
+    assert glm.input == pytest.approx(2.00 * EUR_USD)
+    assert glm.output == pytest.approx(5.20 * EUR_USD)
+    # The exact figures bebri-chat's hand-written rows carried: 1.10 is the
+    # multiplier those rows used, and the source must not drift off it silently.
+    assert (glm.input, glm.output) == (2.2, 5.72)
+
+
+def test_regolo_does_not_read_the_plan_column_as_a_cache_price():
+    """`Included` is which subscription plans carry the model. Booking it as a
+    cache rate would record 0.00 cache reads — free input for any cached
+    session — for every model on the page."""
+    glm = RegoloSource().parse(REGOLO_HTML)['glm5.2']
+    assert glm.cache_read is None
+    assert glm.cache_write is None
+
+
+def test_regolo_rejects_the_header_row_and_anything_odd():
+    prices = RegoloSource().parse(REGOLO_HTML)
+    assert 'Model' not in prices
+    assert RegoloSource().parse('<div>Nothing priced here</div>') == {}
 
 
 # --------------------------------------------------------------------------- #
