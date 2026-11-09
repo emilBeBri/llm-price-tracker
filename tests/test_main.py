@@ -137,6 +137,21 @@ def identical_book(tmp_path):
     return path
 
 
+def test_band_note_names_the_cache_rate_that_moved():
+    """A band whose only change is a cache rate must not print as an
+    unchanged band: a large prompt pays exactly those rates."""
+    band = Price(input=4.0, output=18.0, cache_read=0.4)
+    before = Price(
+        input=2.0, output=12.0, long_context_above=200_000, long_context=band
+    )
+    after = before.model_copy(
+        update={'long_context': band.model_copy(update={'cache_write': 5.0})}
+    )
+    note = main._band_note(before, after)
+    assert 'cache-write' in note and '5.00' in note
+    assert main._band_note(before, before) == ''
+
+
 def test_identical_lists_cross_vendor_groups_and_nothing_else(identical_book):
     result = runner.invoke(
         main.app, ['identical', '--book-path', str(identical_book)]

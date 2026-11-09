@@ -184,6 +184,11 @@ class OpenAISource(Source):
     expect = ('gpt-5', 'gpt-image')
     expect_usage = ('openai.image.', 'openai.web_search')
 
+    # 'Short context: ≤272K input tokens. Long context: >272K input tokens.'
+    _CAPTION = re.compile(
+        r'Short context:\s*≤\s*([\d.]+)\s*K input tokens\.\s*'
+        r'Long context:\s*>\s*([\d.]+)\s*K input tokens'
+    )
     _SECTION = '### Standard pricing data'
     # 'gpt-5.5 (<272K context length)' -> 'gpt-5.5'
     _SUFFIX = re.compile(r'\s*\(.*?\)\s*$')
@@ -207,83 +212,183 @@ class OpenAISource(Source):
 
     def parse(self, body: str) -> dict[str, Price]:
         lines = body.splitlines()
-        out = self._parse_standard(lines)
+        out = self._parse_standard(lines, body)
         # Image ids ('gpt-image-*', 'chatgpt-image-latest') cannot collide with
         # the standard table's, so a plain merge is safe, and a drifted image
         # section costs those rows without touching the text lineup.
         out.update(self._parse_image_models(lines))
         return out
 
-    def _parse_standard(self, lines: list[str]) -> dict[str, Price]:
+    @staticmethod
+    def _col(
+        header: list[str], *needles: str, without: tuple[str, ...] = ()
+    ) -> int | None:
+        for i, h in enumerate(header):
+            if all(n in h for n in needles) and not any(w in h for w in without):
+                return i
+        return None
+
+    def _threshold(self, body: str) -> int:
+        """The long-context boundary, from the sentence the page publishes.
+
+        'Short context: ≤272K input tokens. Long context: >272K input tokens.'
+        — once, document-wide, above nothing in particular. Read, not assumed:
+        a page that drops or rewrites the sentence raises rather than keeping
+        yesterday's boundary, because a stale threshold silently prices a large
+        prompt at the small-prompt rate.
+        """
+        found = self._CAPTION.findall(body)
+        if len(found) != 1:
+            raise ValueError(
+                f'long-context caption: {len(found)} occurrences, expected exactly 1'
+            )
+        short, long_ = found[0]
+        if float(short) != float(long_):
+            raise ValueError(f'long-context caption disagrees with itself: {found[0]}')
+        return int(float(short) * 1_000)
+
+    def _long_block(
+        self, row: list[str], cols: dict[str, int | None], model: str
+    ) -> Price | None:
+        """The row's long-context rates, or None when it publishes none.
+
+        Absent only when EVERY present long cell is a dash: a numeric 12h write
+        with no long input or output is a half-published band, not an absence,
+        and so is a lone cached-input figure.
+        """
+        texts = {k: (row[i].strip() if i is not None else '-') for k, i in cols.items()}
+        if all(v in ('-', '—', '') for v in texts.values()):
+            return None
+        inp, outp = dollars(texts['input']), dollars(texts['output'])
+        if inp is None or outp is None:
+            raise ValueError(
+                f'{model}: long-context block is only partly published '
+                f'({texts}) — refusing to read it as no surcharge'
+            )
+        return Price(
+            input=inp,
+            output=outp,
+            cache_read=dollars(texts['cached']),
+            cache_write=dollars(texts['write']),
+        )
+
+    def _parse_standard(self, lines: list[str], body: str) -> dict[str, Price]:
         try:
             start = next(i for i, ln in enumerate(lines) if ln.strip() == self._SECTION)
         except StopIteration:
             return {}
 
-        rows: list[list[str]] = []
+        # Contiguous pipe blocks, each read against its OWN header. The section
+        # carries the modern eleven-column table and then, after a blank line, a
+        # legacy four-column one for the older families; a blank line does not
+        # end a table here, so both used to be parsed against the first header.
+        blocks: list[list[list[str]]] = []
+        current: list[list[str]] = []
         for ln in lines[start + 1 :]:
             s = ln.strip()
             if not s:
+                if current:
+                    blocks.append(current)
+                    current = []
                 continue
             if not s.startswith('|'):
-                break  # table ended
+                break  # the section's tables ended
             cells = self._cells(s)
             if cells is None:
                 continue  # the |---|---| separator
-            rows.append(cells)
+            current.append(cells)
+        if current:
+            blocks.append(current)
+
+        out: dict[str, Price] = {}
+        for rows in blocks:
+            for model, price in self._parse_block(rows, body).items():
+                out.setdefault(model, price)
+        return out
+
+    def _parse_block(self, rows: list[list[str]], body: str) -> dict[str, Price]:
         if not rows:
             return {}
-
         header = [c.lower() for c in rows[0]]
+        col = self._col
 
-        def col(*needles: str) -> int | None:
-            for i, h in enumerate(header):
-                if all(n in h for n in needles):
-                    return i
-            return None
-
-        # Short context is the tier we record; the same row also carries the
-        # long-context block, which is a different (higher) price.
-        c_in = col('short context', 'input') or col('input')
-        c_out = col('short context', 'output') or col('output')
-        c_cached = col('short context', 'cached')
-        # Shortest published TTL — see the class docstring. The older
-        # single-column header names the same rate and is still accepted.
-        c_write = col('short context', '30m write')
-        if c_write is None:
-            c_write = col('short context', 'cache writes')
-        if c_in is None or c_out is None:
-            return {}
-
-        def cell(row: list[str], i: int | None) -> str:
-            """One cell, or '' when the row is shorter than the header.
-
-            The standard section carries a second, legacy four-column table
-            (`Model | Input | Output | Cached input`) after a blank line, and a
-            blank line does not terminate the table here. Those rows are parsed
-            against the eleven-column header, so every index past 3 is out of
-            range and an unguarded read of the write column raises instead of
-            yielding None.
-            """
-            return row[i] if i is not None and i < len(row) else ''
+        if col(header, 'short context') is None:
+            # Legacy four-column table: Model | Input | Output | Cached input.
+            # No prompt-size block exists for these models.
+            c_in = col(header, 'input', without=('cached',))
+            c_out = col(header, 'output')
+            if c_in is None or c_out is None:
+                return {}
+            c_cached = col(header, 'cached input')
+            c_write = None
+            long_cols = None
+        else:
+            c_in = col(header, 'short context', 'input', without=('cached', 'write'))
+            c_out = col(header, 'short context', 'output')
+            c_cached = col(header, 'short context', 'cached input')
+            c_write = col(header, 'short context', '30m write')
+            if c_write is None:
+                c_write = col(header, 'short context', 'cache writes')
+            long_cols = {
+                'input': col(header, 'long context', 'input', without=('cached', 'write')),
+                'output': col(header, 'long context', 'output'),
+                'cached': col(header, 'long context', 'cached input'),
+                'write': col(header, 'long context', '30m write'),
+                '12h': col(header, 'long context', '12h write'),
+            }
+            if long_cols['write'] is None:
+                long_cols['write'] = col(header, 'long context', 'cache writes')
+            # Required by NAME on both sides. Symmetry is not completeness: a
+            # page that renames both cached-input columns would otherwise match
+            # itself and record two live rates as absent.
+            required = [
+                name
+                for name, idx in (
+                    ('short context input', c_in),
+                    ('short context output', c_out),
+                    ('short context cached input', c_cached),
+                    ('short context write', c_write),
+                    ('long context input', long_cols['input']),
+                    ('long context output', long_cols['output']),
+                    ('long context cached input', long_cols['cached']),
+                    ('long context write', long_cols['write']),
+                )
+                if idx is None
+            ]
+            if required:
+                raise ValueError(
+                    f'standard table header missing {required} — the page was '
+                    'reshaped, refusing to read absent rates'
+                )
 
         out: dict[str, Price] = {}
         for r in rows[1:]:
-            if len(r) <= max(c_in, c_out) or not r[0]:
+            if not r or not r[0]:
                 continue
+            if len(r) != len(header):
+                raise ValueError(
+                    f'row {r[0][:40]!r} has {len(r)} cells, header has {len(header)}'
+                )
             inp, outp = dollars(r[c_in]), dollars(r[c_out])
             if inp is None or outp is None:
                 continue
             model = self._SUFFIX.sub('', r[0]).strip()
-            out.setdefault(
-                model,
-                Price(
-                    input=inp,
-                    output=outp,
-                    cache_read=dollars(cell(r, c_cached)),
-                    cache_write=dollars(cell(r, c_write)),
-                ),
+            price = Price(
+                input=inp,
+                output=outp,
+                cache_read=dollars(r[c_cached]) if c_cached is not None else None,
+                cache_write=dollars(r[c_write]) if c_write is not None else None,
             )
+            if long_cols is not None:
+                band = self._long_block(r, long_cols, model)
+                if band is not None:
+                    price = price.model_copy(
+                        update={
+                            'long_context_above': self._threshold(body),
+                            'long_context': band,
+                        }
+                    )
+            out.setdefault(model, price)
         return out
 
     def _parse_image_models(self, lines: list[str]) -> dict[str, Price]:

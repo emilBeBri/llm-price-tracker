@@ -38,13 +38,18 @@ def test_dollars_takes_the_first_amount():
 # --------------------------------------------------------------------------- #
 OPENAI_MD = """# Pricing
 
+Short context: ≤272K input tokens. Long context: >272K input tokens.
+
 ### Standard pricing data
 
-| Model | Short context input | Short context cached input | Short context cache writes | Short context output | Long context input | Long context output |
-| --- | --- | --- | --- | --- | --- | --- |
-| gpt-5.6-luna | $0.20 | $0.02 | $0.25 | $1.20 | $0.40 | $1.80 |
-| gpt-5.5 (<272K context length) | $5.00 | $0.50 | - | $30.00 | $10.00 | $45.00 |
-| o3 | $2.00 | $0.50 | - | $8.00 | - | - |
+| Model | Short context input | Short context output | Short context cached input | Short context 30m write | Short context 12h write | Long context input | Long context output | Long context cached input | Long context 30m write | Long context 12h write |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gpt-5.6-luna | $0.20 | $1.20 | $0.02 | $0.25 | $0.50 | $0.40 | $1.80 | $0.04 | $0.50 | $1.00 |
+| gpt-5.5 (<272K context length) | $5.00 | $30.00 | $0.50 | - | - | $10.00 | $45.00 | $1.00 | - | - |
+
+| Model | Input | Output | Cached input |
+| --- | --- | --- | --- |
+| o3 | $2.00 | $8.00 | $0.50 |
 
 ### Batch pricing data
 
@@ -104,6 +109,78 @@ def test_openai_strips_context_suffix_from_model_names():
     assert 'gpt-5.5' in OpenAISource().parse(OPENAI_MD)
 
 
+def test_openai_records_the_long_context_band():
+    """The band is published in the SAME row as five more columns, and the
+    threshold is a sentence the page states once — not the '<272K context
+    length' label on the model name, which says nothing about which rate
+    applies above it."""
+    prices = OpenAISource().parse(OPENAI_MD)
+    luna = prices['gpt-5.6-luna']
+    assert (luna.input, luna.output) == (0.20, 1.20)
+    assert luna.long_context_above == 272_000
+    assert (luna.long_context.input, luna.long_context.output) == (0.40, 1.80)
+    assert luna.long_context.cache_read == 0.04
+    assert luna.long_context.cache_write == 0.50
+
+
+def test_openai_long_writes_may_be_absent_while_the_band_stands():
+    """gpt-5.5 publishes '-' for both write columns and real rates for the
+    rest: an optional gap, not a half-published band."""
+    gpt55 = OpenAISource().parse(OPENAI_MD)['gpt-5.5']
+    assert (gpt55.long_context.input, gpt55.long_context.output) == (10.0, 45.0)
+    assert gpt55.long_context.cache_write is None
+
+
+def test_openai_legacy_table_rows_carry_no_band():
+    assert OpenAISource().parse(OPENAI_MD)['o3'].long_context is None
+
+
+def test_openai_refuses_a_header_that_lost_the_long_columns():
+    """Symmetry is not completeness, and a missing column is not a published
+    absence: a reshaped header must break the source, not silently drop a
+    live rate."""
+    trimmed = []
+    for line in OPENAI_MD.splitlines():
+        if line.startswith('|') and line.count('|') == 12:
+            trimmed.append('|' + '|'.join(line.strip('|').split('|')[:6]) + '|')
+        else:
+            trimmed.append(line)
+    assert trimmed != OPENAI_MD.splitlines()
+    with pytest.raises(ValueError):
+        OpenAISource().parse('\n'.join(trimmed))
+
+
+def test_openai_refuses_a_symmetric_rename_of_the_cache_columns():
+    renamed = OPENAI_MD.replace('cached input', 'prompt cache read')
+    with pytest.raises(ValueError):
+        OpenAISource().parse(renamed)
+
+
+def test_openai_refuses_a_band_with_only_a_write_rate():
+    """A numeric 12h write with '-' for long input and output is a
+    half-published band, not 'no surcharge'."""
+    broken = OPENAI_MD.replace(
+        '| $5.00 | $30.00 | $0.50 | - | - | $10.00 | $45.00 | $1.00 | - | - |',
+        '| $5.00 | $30.00 | $0.50 | - | - | - | - | - | - | $2.00 |',
+    )
+    with pytest.raises(ValueError):
+        OpenAISource().parse(broken)
+
+
+def test_openai_requires_exactly_one_threshold_sentence():
+    missing = OPENAI_MD.replace(
+        'Short context: ≤272K input tokens. Long context: >272K input tokens.', ''
+    )
+    with pytest.raises(ValueError):
+        OpenAISource().parse(missing)
+    contradictory = OPENAI_MD.replace(
+        'Short context: ≤272K input tokens. Long context: >272K input tokens.',
+        'Short context: ≤272K input tokens. Long context: >400K input tokens.',
+    )
+    with pytest.raises(ValueError):
+        OpenAISource().parse(contradictory)
+
+
 def test_openai_covers_the_o_series():
     """The o-series is absent from the server-rendered HTML; markdown has it."""
     assert OpenAISource().parse(OPENAI_MD)['o3'].input == 2.0
@@ -155,6 +232,8 @@ def test_openai_image_renamed_column_yields_no_rows():
 # The header that shipped when OpenAI split cache writes by TTL. Both a 30m and
 # a 12h column are published, in the short-context block and again in the long.
 OPENAI_MD_TTL = """# Pricing
+
+Short context: ≤272K input tokens. Long context: >272K input tokens.
 
 ### Standard pricing data
 

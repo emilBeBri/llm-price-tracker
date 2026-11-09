@@ -418,6 +418,33 @@ def test_a_band_appearing_on_an_unchanged_rate_is_changed_and_archived():
     assert entry.history[STANDARD][0].effective_from == '2026-10-16'
 
 
+def test_a_band_first_observed_today_leaves_its_predecessor_bandless():
+    """The known limitation of first-observed dating, pinned so a later fix
+    cannot quietly invent a start date: enrichment archives the bandless row,
+    and a lookup before it still prices a large prompt at the cheap rate."""
+    base = Price(
+        input=0.1, output=0.5, cache_read=0.01, cache_write=0.125,
+        effective_from='2026-10-16',
+    )
+    book = _book('haiku', base)
+    banded = base.model_copy(
+        update={
+            'long_context_above': 100_000,
+            'long_context': Price(input=0.5, output=2.5, cache_read=0.05),
+        }
+    )
+    entry = apply_deltas(
+        book,
+        diff_book(book, reconcile([_res('anthropic', {'haiku': banded})])),
+        updated_at='2026-11-09',
+    ).models['haiku']
+    before = entry.price_at(_day('2026-10-20'))
+    after = entry.price_at(_day('2026-11-10'))
+    assert before.long_context is None
+    assert after.long_context is not None
+    assert after.long_context_above == 100_000
+
+
 def test_a_band_only_edit_moves_the_threshold_without_touching_the_rates():
     band = Price(input=0.5, output=2.5)
     current = Price(

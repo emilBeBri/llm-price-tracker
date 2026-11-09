@@ -137,7 +137,18 @@ def _band_note(old: Price | None, new: Price | None) -> str:
         return f' ·band removed (was >{before[0]:,})'
     if before is None:
         return f' ·band >{after[0]:,} {_money(after[1])}/{_money(after[2])}'
-    return f' ·band >{before[0]:,}→{after[0]:,} {_money(after[1])}/{_money(after[2])}'
+    # Name every field that moved. A band whose only change is a cache rate
+    # would otherwise print the unchanged input/output and read as noise —
+    # and a cache rate inside the band is exactly what a large prompt pays.
+    fields = ('in', 'out', 'cache', 'cache-write')
+    moved = [
+        f'{label} {_money(b)}→{_money(a)}'
+        for label, b, a in zip(fields, before[1:], after[1:])
+        if b != a
+    ]
+    if before[0] != after[0]:
+        moved.insert(0, f'>{before[0]:,}→{after[0]:,}')
+    return ' ·band ' + ', '.join(moved)
 
 
 def _fetch_or_exit(timeout: float):
@@ -428,6 +439,7 @@ def refresh(
         old = _price_cell(d.old)
         new = (
             _price_cell(d.new) + _announce_cell(d.new) + _cache_note(d.old, d.new)
+            + _band_note(d.old, d.new)
         )
         console.print(f'  {d.drift.value:8} {d.model_id:34} {old:>18} -> {new}')
 
