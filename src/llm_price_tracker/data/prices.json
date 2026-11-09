@@ -2136,13 +2136,30 @@
           "input": 2.5,
           "output": 15.0,
           "cache_read": 0.25,
-          "effective_from": "2026-08-01"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 5.0,
+            "output": 22.5,
+            "cache_read": 0.5
+          },
+          "long_context_above": 272000
         }
       },
       "sources": [
         "llm-prices.com",
-        "openai"
-      ]
+        "openai",
+        "openrouter"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 2.5,
+            "output": 15.0,
+            "cache_read": 0.25,
+            "effective_from": "2026-08-01"
+          }
+        ]
+      }
     },
     "gpt-5.4-mini": {
       "id": "gpt-5.4-mini",
@@ -2183,13 +2200,28 @@
         "standard": {
           "input": 30.0,
           "output": 180.0,
-          "effective_from": "2026-08-01"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 60.0,
+            "output": 270.0
+          },
+          "long_context_above": 272000
         }
       },
       "sources": [
         "llm-prices.com",
-        "openai"
-      ]
+        "openai",
+        "openrouter"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 30.0,
+            "output": 180.0,
+            "effective_from": "2026-08-01"
+          }
+        ]
+      }
     },
     "gpt-5.5": {
       "id": "gpt-5.5",
@@ -2199,13 +2231,30 @@
           "input": 5.0,
           "output": 30.0,
           "cache_read": 0.5,
-          "effective_from": "2026-08-01"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 10.0,
+            "output": 45.0,
+            "cache_read": 1.0
+          },
+          "long_context_above": 272000
         }
       },
       "sources": [
         "llm-prices.com",
-        "openai"
-      ]
+        "openai",
+        "openrouter"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 5.0,
+            "output": 30.0,
+            "cache_read": 0.5,
+            "effective_from": "2026-08-01"
+          }
+        ]
+      }
     },
     "gpt-5.5-pro": {
       "id": "gpt-5.5-pro",
@@ -2214,13 +2263,28 @@
         "standard": {
           "input": 30.0,
           "output": 180.0,
-          "effective_from": "2026-08-01"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 60.0,
+            "output": 270.0
+          },
+          "long_context_above": 272000
         }
       },
       "sources": [
         "llm-prices.com",
-        "openai"
-      ]
+        "openai",
+        "openrouter"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 30.0,
+            "output": 180.0,
+            "effective_from": "2026-08-01"
+          }
+        ]
+      }
     },
     "gpt-5.6-luna": {
       "id": "gpt-5.6-luna",
@@ -2231,7 +2295,14 @@
           "output": 1.2,
           "cache_read": 0.02,
           "cache_write": 0.25,
-          "effective_from": "2026-11-09"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 0.4,
+            "output": 1.8,
+            "cache_read": 0.04,
+            "cache_write": 0.5
+          },
+          "long_context_above": 272000
         }
       },
       "sources": [
@@ -2253,6 +2324,13 @@
             "output": 1.2,
             "cache_read": 0.02,
             "effective_from": "2026-10-31"
+          },
+          {
+            "input": 0.2,
+            "output": 1.2,
+            "cache_read": 0.02,
+            "cache_write": 0.25,
+            "effective_from": "2026-11-09"
           }
         ]
       }
@@ -2266,7 +2344,14 @@
           "output": 20.0,
           "cache_read": 0.4,
           "cache_write": 5.0,
-          "effective_from": "2026-11-09"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 8.0,
+            "output": 30.0,
+            "cache_read": 0.8,
+            "cache_write": 10.0
+          },
+          "long_context_above": 272000
         }
       },
       "sources": [
@@ -2295,6 +2380,13 @@
             "output": 20.0,
             "cache_read": 0.4,
             "effective_from": "2026-10-31"
+          },
+          {
+            "input": 4.0,
+            "output": 20.0,
+            "cache_read": 0.4,
+            "cache_write": 5.0,
+            "effective_from": "2026-11-09"
           }
         ]
       }
@@ -2308,7 +2400,14 @@
           "output": 12.0,
           "cache_read": 0.2,
           "cache_write": 2.5,
-          "effective_from": "2026-11-09"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 4.0,
+            "output": 18.0,
+            "cache_read": 0.4,
+            "cache_write": 5.0
+          },
+          "long_context_above": 272000
         }
       },
       "sources": [
@@ -2330,6 +2429,13 @@
             "output": 12.0,
             "cache_read": 0.2,
             "effective_from": "2026-10-31"
+          },
+          {
+            "input": 2.0,
+            "output": 12.0,
+            "cache_read": 0.2,
+            "cache_write": 2.5,
+            "effective_from": "2026-11-09"
           }
         ]
       }
@@ -2343,7 +2449,14 @@
           "output": 50.0,
           "cache_read": 1.0,
           "cache_write": 12.5,
-          "effective_from": "2026-11-09"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 20.0,
+            "output": 75.0,
+            "cache_read": 2.0,
+            "cache_write": 25.0
+          },
+          "long_context_above": 272000
         }
       },
       "sources": [
@@ -2365,6 +2478,13 @@
             "output": 50.0,
             "cache_read": 1.0,
             "effective_from": "2026-10-31"
+          },
+          {
+            "input": 10.0,
+            "output": 50.0,
+            "cache_read": 1.0,
+            "cache_write": 12.5,
+            "effective_from": "2026-11-09"
           }
         ]
       }
@@ -2378,7 +2498,14 @@
           "output": 0.5,
           "cache_read": 0.01,
           "cache_write": 0.125,
-          "effective_from": "2026-11-09"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 0.2,
+            "output": 0.75,
+            "cache_read": 0.02,
+            "cache_write": 0.25
+          },
+          "long_context_above": 272000
         }
       },
       "sources": [
@@ -2400,6 +2527,13 @@
             "output": 0.5,
             "cache_read": 0.01,
             "effective_from": "2026-10-31"
+          },
+          {
+            "input": 0.1,
+            "output": 0.5,
+            "cache_read": 0.01,
+            "cache_write": 0.125,
+            "effective_from": "2026-11-09"
           }
         ]
       }
@@ -2413,7 +2547,14 @@
           "output": 10.0,
           "cache_read": 0.2,
           "cache_write": 2.5,
-          "effective_from": "2026-11-09"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 4.0,
+            "output": 15.0,
+            "cache_read": 0.4,
+            "cache_write": 5.0
+          },
+          "long_context_above": 272000
         }
       },
       "sources": [
@@ -2435,6 +2576,13 @@
             "output": 10.0,
             "cache_read": 0.2,
             "effective_from": "2026-10-31"
+          },
+          {
+            "input": 2.0,
+            "output": 10.0,
+            "cache_read": 0.2,
+            "cache_write": 2.5,
+            "effective_from": "2026-11-09"
           }
         ]
       }
@@ -2448,7 +2596,14 @@
           "output": 10.0,
           "cache_read": 0.1,
           "cache_write": 2.5,
-          "effective_from": "2026-11-09"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 4.0,
+            "output": 15.0,
+            "cache_read": 0.2,
+            "cache_write": 5.0
+          },
+          "long_context_above": 272000
         }
       },
       "sources": [
@@ -2470,6 +2625,13 @@
             "output": 10.0,
             "cache_read": 0.1,
             "effective_from": "2026-10-31"
+          },
+          {
+            "input": 2.0,
+            "output": 10.0,
+            "cache_read": 0.1,
+            "cache_write": 2.5,
+            "effective_from": "2026-11-09"
           }
         ]
       }
@@ -2483,7 +2645,14 @@
           "output": 5.0,
           "cache_read": 0.05,
           "cache_write": 1.25,
-          "effective_from": "2026-11-09"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 2.0,
+            "output": 7.5,
+            "cache_read": 0.1,
+            "cache_write": 2.5
+          },
+          "long_context_above": 272000
         }
       },
       "sources": [
@@ -2498,6 +2667,13 @@
             "output": 5.0,
             "cache_read": 0.05,
             "effective_from": "2026-10-31"
+          },
+          {
+            "input": 1.0,
+            "output": 5.0,
+            "cache_read": 0.05,
+            "cache_write": 1.25,
+            "effective_from": "2026-11-09"
           }
         ]
       }
