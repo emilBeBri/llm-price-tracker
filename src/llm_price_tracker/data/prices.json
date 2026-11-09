@@ -125,6 +125,23 @@
         "openrouter"
       ]
     },
+    "claude-fable-5.2": {
+      "id": "claude-fable-5.2",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 8.0,
+          "output": 40.0,
+          "cache_read": 0.2,
+          "cache_write": 10.0,
+          "effective_from": "2026-11-09"
+        }
+      },
+      "sources": [
+        "anthropic",
+        "openrouter"
+      ]
+    },
     "claude-haiku-3.5": {
       "id": "claude-haiku-3.5",
       "vendor": "anthropic",
@@ -220,6 +237,22 @@
           "cache_read": 0.25,
           "cache_write": 12.5,
           "effective_from": "2026-09-02"
+        }
+      },
+      "sources": [
+        "anthropic"
+      ]
+    },
+    "claude-mythos-5.2": {
+      "id": "claude-mythos-5.2",
+      "vendor": "anthropic",
+      "tiers": {
+        "standard": {
+          "input": 8.0,
+          "output": 40.0,
+          "cache_read": 0.2,
+          "cache_write": 10.0,
+          "effective_from": "2026-11-09"
         }
       },
       "sources": [
@@ -891,13 +924,30 @@
           "input": 1.25,
           "output": 10.0,
           "cache_read": 0.125,
-          "effective_from": "2026-08-01"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 2.5,
+            "output": 15.0,
+            "cache_read": 0.25
+          },
+          "long_context_above": 200000
         }
       },
       "sources": [
         "google",
-        "llm-prices.com"
-      ]
+        "llm-prices.com",
+        "openrouter"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 1.25,
+            "output": 10.0,
+            "cache_read": 0.125,
+            "effective_from": "2026-08-01"
+          }
+        ]
+      }
     },
     "gemini-2.5-pro-preview-tts": {
       "id": "gemini-2.5-pro-preview-tts",
@@ -1022,12 +1072,29 @@
           "input": 2.0,
           "output": 12.0,
           "cache_read": 0.2,
-          "effective_from": "2026-08-01"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 4.0,
+            "output": 18.0,
+            "cache_read": 0.4
+          },
+          "long_context_above": 200000
         }
       },
       "sources": [
-        "google"
-      ]
+        "google",
+        "openrouter"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 2.0,
+            "output": 12.0,
+            "cache_read": 0.2,
+            "effective_from": "2026-08-01"
+          }
+        ]
+      }
     },
     "gemini-3.5-flash": {
       "id": "gemini-3.5-flash",
@@ -1314,6 +1381,21 @@
         "google"
       ]
     },
+    "gemini-omni-1.2-flash": {
+      "id": "gemini-omni-1.2-flash",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 1.5,
+          "output": 9.0,
+          "effective_from": "2026-11-09"
+        }
+      },
+      "sources": [
+        "google",
+        "openrouter"
+      ]
+    },
     "gemini-omni-flash-preview": {
       "id": "gemini-omni-flash-preview",
       "vendor": "google",
@@ -1350,15 +1432,7 @@
           "input": 1.0,
           "output": 5.0,
           "cache_read": 0.1,
-          "effective_from": "2026-09-09",
-          "scheduled": [
-            {
-              "input": 2.0,
-              "output": 10.0,
-              "cache_read": 0.2,
-              "effective_from": "2027-01-01"
-            }
-          ]
+          "effective_from": "2026-09-09"
         }
       },
       "sources": [
@@ -1382,14 +1456,7 @@
         "standard": {
           "input": 1.0,
           "output": 5.0,
-          "effective_from": "2026-09-09",
-          "scheduled": [
-            {
-              "input": 2.0,
-              "output": 10.0,
-              "effective_from": "2027-01-01"
-            }
-          ]
+          "effective_from": "2026-09-09"
         }
       },
       "sources": [
