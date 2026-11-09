@@ -101,6 +101,70 @@ def test_relative_without_comparison_lists_all_models_by_input_cost(book_path):
     assert '3 model(s) · reference = 100%' in result.stdout
 
 
+@pytest.fixture()
+def identical_book(tmp_path):
+    """Two vendors at one price, plus a same-vendor pair at another."""
+    path = tmp_path / 'identical.json'
+    save_book(
+        PriceBook(
+            updated_at='2026-11-09',
+            models={
+                'acme-one': ModelEntry(
+                    id='acme-one',
+                    vendor='acme',
+                    tiers={'standard': Price(input=2.0, output=10.0)},
+                ),
+                'budget-one': ModelEntry(
+                    id='budget-one',
+                    vendor='budget',
+                    tiers={'standard': Price(input=2.0, output=10.0)},
+                ),
+                # One vendor's two ids at the same rate is a product line.
+                'acme-two': ModelEntry(
+                    id='acme-two',
+                    vendor='acme',
+                    tiers={'standard': Price(input=3.0, output=15.0)},
+                ),
+                'acme-three': ModelEntry(
+                    id='acme-three',
+                    vendor='acme',
+                    tiers={'standard': Price(input=3.0, output=15.0)},
+                ),
+            },
+        ),
+        path,
+    )
+    return path
+
+
+def test_identical_lists_cross_vendor_groups_and_nothing_else(identical_book):
+    result = runner.invoke(
+        main.app, ['identical', '--book-path', str(identical_book)]
+    )
+    assert result.exit_code == 0
+    assert 'acme-one' in result.stdout and 'budget-one' in result.stdout
+    # A single vendor's shared price is not a convergence.
+    assert 'acme-two' not in result.stdout
+    assert '1 group(s)' in result.stdout
+
+
+def test_relative_warns_when_both_models_list_at_the_same_price(identical_book):
+    """Every percentage reads 100% by construction, which looks like "no
+    difference" and is the opposite of the truth."""
+    result = runner.invoke(
+        main.app,
+        [
+            'relative',
+            'acme-one',
+            'budget-one',
+            '--book-path',
+            str(identical_book),
+        ],
+    )
+    assert result.exit_code == 0
+    assert 'Both list at' in result.stdout
+
+
 def test_relative_fzf_selects_reference_then_one_comparison(book_path, monkeypatch):
     calls = []
     selections = iter(('reference-model', 'expensive-model'))

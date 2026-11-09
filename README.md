@@ -11,6 +11,7 @@ uv run llm-price-tracker refresh --write             # fold live prices in
 uv run llm-price-tracker show gpt-5                  # offline lookup
 uv run llm-price-tracker relative deepseek-flash     # compare every model to a reference
 uv run llm-price-tracker relative fzf                # interactively choose two models
+uv run llm-price-tracker identical                   # models that list at the same rate
 ```
 
 `relative REFERENCE` lists every standard-tier model, sorted by input rate, with
@@ -132,6 +133,33 @@ rather than `None` — refusing to price a call the app definitely made is
 worse, and `effective_from` on the returned row always says whether you got a
 record or an extrapolation. History before 2026-09-02 was backfilled from
 `git log` by `scripts/backfill_price_history.py`.
+
+### Large prompts: the band is a second rate, not a multiplier
+
+Anthropic publishes Haiku 5.5 twice — `(for prompts up to 100,000 tokens)` at
+0.10/0.50 and `(for prompts over 100,000 tokens)` at 0.50/2.50. Past the line the
+WHOLE request rebills: a 120k agentic loop costs 6.8x what the headline rate
+suggests, and the second row used to be dropped as a duplicate of the first.
+
+So a rate row carries an optional band, recorded as published:
+
+```json
+"standard": {
+  "input": 0.1, "output": 0.5, "cache_read": 0.01, "cache_write": 0.125,
+  "long_context_above": 100000,
+  "long_context": {"input": 0.5, "output": 2.5, "cache_read": 0.05, "cache_write": 0.625}
+}
+```
+
+`long_context_above` is the last token count in the CHEAP band — the surcharge
+applies strictly above it, because that is how every vendor phrases it ("over
+100,000", "> 272K"). `estimate_cost` selects by prompt size; `for_time` and
+`price_at` do not, because they take a date and not a token count, so a caller
+resolving its own bill has to pick the band itself.
+
+A band is a rate fact like any other, so it takes part in the history push: the
+row that first carried one is archived as its bandless predecessor, and a
+withdrawn band disappears on the next refresh rather than lingering.
 
 **Vendor facts only.** The book records what a vendor publishes, keyed by the
 vendor's own model id. It holds no consuming app's billing decisions — no

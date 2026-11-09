@@ -33,7 +33,7 @@ from .compare import (
     reconcile,
     usage_price_updates,
 )
-from .models import STANDARD, Price, PriceBook
+from .models import STANDARD, ModelEntry, Price, PriceBook
 from .watch import WatchPolicy, WatchPolicyError, load_policy
 
 app = typer.Typer(
@@ -690,6 +690,22 @@ def relative(
     assert reference_price is not None  # guaranteed by picker/resolution filters
 
     if comparison_id is not None:
+        peer = book.models[comparison_id].standard
+        if peer is not None and (peer.input, peer.output) == (
+            reference_price.input,
+            reference_price.output,
+        ):
+            # Identical headlines are common and they make this command look
+            # like it found nothing: every percentage reads 100% while the real
+            # difference sits in the cache rates and the prompt-size band.
+            console.print(
+                '[dim]Both list at '
+                f'{_money(reference_price.input)}/{_money(reference_price.output)} — '
+                'the percentages below are identical by construction; the '
+                'difference is in the cache rates and any ·band.[/]'
+            )
+
+    if comparison_id is not None:
         model_ids = [reference_id]
         if comparison_id != reference_id:
             model_ids.append(comparison_id)
@@ -740,6 +756,61 @@ def relative(
 
     console.print(table)
     console.print(f'{len(model_ids)} model(s) · reference = 100%')
+
+
+@app.command()
+def identical(
+    book_path: Annotated[
+        Path | None, typer.Option(help='Override the book path.')
+    ] = None,
+) -> None:
+    """Models that list at exactly the same input/output rate, across vendors.
+
+    Read-only and offline. Identical headline prices are common — 14 groups in
+    this book — and they are the least informative rows a comparison can show:
+    inside such a group the ladder is decided entirely by the cache rates and
+    the prompt-size band, which is where the bill actually differs. That is
+    also why `relative` between two members reads 100% across the board.
+
+    Cross-vendor only. Several ids from ONE vendor at the same price is a
+    product line, not a convergence.
+    """
+    book = load_book(book_path)
+    groups: dict[tuple[float, float], list[ModelEntry]] = {}
+    for entry in book.models.values():
+        price = entry.standard
+        if price is None:
+            continue
+        groups.setdefault((price.input, price.output), []).append(entry)
+
+    rows = sorted(
+        (key, entries)
+        for key, entries in groups.items()
+        if len({e.vendor for e in entries}) > 1
+    )
+    if not rows:
+        console.print('No cross-vendor models share a list price.')
+        return
+
+    table = Table(title='Identical list prices', title_justify='left', pad_edge=False)
+    table.add_column('input/output', justify='right')
+    table.add_column('n', justify='right')
+    table.add_column('models', overflow='fold')
+    table.add_column('vendors', style='dim', overflow='fold')
+    for (inp, outp), entries in rows:
+        entries.sort(key=lambda e: e.id)
+        table.add_row(
+            f'{_money(inp)}/{_money(outp)}',
+            str(len(entries)),
+            ', '.join(e.id for e in entries),
+            ', '.join(sorted({e.vendor for e in entries})),
+        )
+    console.print(table)
+    console.print(
+        f'{len(rows)} group(s) covering {sum(len(e) for _, e in rows)} model(s) — '
+        'inside a group the difference is in the cache rates and the band, '
+        'not the headline.'
+    )
 
 
 @app.command()
