@@ -6,6 +6,7 @@ that had silently killed the OpenAI one fixed here from the start.
 
 from __future__ import annotations
 
+import html
 import re
 from collections.abc import Iterator
 from datetime import date
@@ -380,6 +381,100 @@ class OpenAISource(Source):
         return out
 
 
+def _md_sections(body: str) -> Iterator[tuple[str, str]]:
+    """(wire id, section text) for every `## <name> {% id="…" %}` section.
+
+    This page is MDX, not HTML: each model is an `##` heading carrying its own
+    wire id in a directive, and the prices live in a `{% table %}` inside a
+    `{% tab title="Standard" %}`. There are no `<table>` elements and no pipe
+    tables at all, which is why the HTML parser and `_pipe_tables` both return
+    nothing here.
+    """
+    # The fetched page wraps the markdown in an HTML shell and escapes it on
+    # the way through: `{% id=&quot;gemini-4-argon&quot; %}`, `prompts &lt;= 200k`.
+    # Unescape once, here, so every downstream reader works on the document the
+    # vendor wrote rather than on its HTML-escaped copy.
+    for chunk in re.split(r'(?m)^## ', html.unescape(body))[1:]:
+        match = re.search(r'\{%\s*id="([^"]+)"\s*%\}', chunk)
+        if match is not None:
+            yield match[1], chunk
+
+
+def _md_cells(row: str) -> list[str]:
+    """One MDX table row's cells: `*` bullets, continuation lines folded in.
+
+    A cell can span several lines (a per-image equivalence note under the token
+    rate), so a bullet starts a cell and every following non-bullet line belongs
+    to it. `*` must be followed by whitespace — `*[text](link)*` is emphasis.
+    """
+    cells: list[str] = []
+    current: list[str] = []
+    for line in row.splitlines():
+        stripped = line.strip()
+        if stripped.startswith('*') and stripped[1:2].isspace():
+            if current:
+                cells.append(' '.join(current).strip())
+            current = [stripped[1:].strip()]
+        elif stripped and current:
+            current.append(stripped)
+    if current:
+        cells.append(' '.join(current).strip())
+    return cells
+
+
+def _md_paid_column(section: str) -> dict[str, str]:
+    """{row label lowercased: the PAID tier cell} for the Standard tab.
+
+    Selection is by name at every step, because a positional read records a
+    confident wrong price the first time the page reorders a column: the tab by
+    its title, the table by its directive, the paid column by its header cell
+    ('Paid Tier, per 1M tokens in USD'), and each row by its label. A row whose
+    width disagrees with the header is not a row we understand — it raises
+    rather than shifting a neighbouring price into the answer.
+    """
+    tab = re.search(
+        r'\{%\s*tab title="Standard"\s*%\}(.*?)\{%\s*/tab\s*%\}', section, re.S
+    )
+    if tab is None:
+        return {}
+    table = re.search(r'\{%\s*table\s*%\}(.*?)\{%\s*/table\s*%\}', tab[1], re.S)
+    if table is None:
+        return {}
+    rows = [
+        _md_cells(part)
+        for part in re.split(r'(?m)^\s*---\s*$', table[1])
+        if part.strip()
+    ]
+    rows = [row for row in rows if row]
+    if not rows:
+        return {}
+    header = rows[0]
+    paid = next(
+        (i for i, cell in enumerate(header) if 'paid tier' in cell.lower()), None
+    )
+    if paid is None:
+        return {}
+    out: dict[str, str] = {}
+    for row in rows[1:]:
+        label = row[0].lower()
+        if len(row) != len(header):
+            # A merged row ('Not Supported' spanning Free and Paid) is legal and
+            # carries nothing we read. A row we DO read must not be shifted, so
+            # the width check is enforced exactly where a wrong index would
+            # record a confident wrong rate, and skipped where it would only
+            # brick a model over a cell we never touch.
+            if label.startswith(('input price', 'output price', 'context caching')):
+                raise ValueError(
+                    f'row {row[0][:60]!r} has {len(row)} cells, header has '
+                    f'{len(header)} — refusing to guess the paid column'
+                )
+            continue
+        if paid >= len(row):
+            continue
+        out.setdefault(label, row[paid])
+    return out
+
+
 class GoogleSource(Source):
     """ai.google.dev gemini pricing: `<h2 id="gemini-...">` + a pricing table.
 
@@ -428,72 +523,168 @@ class GoogleSource(Source):
         r'(image|video|minute|second|hour|request|use|search)',
         re.IGNORECASE,
     )
+    # 'per hour' / 'per month' anywhere in the text that FOLLOWS an amount is
+    # storage, not a token rate — see `_token_rate`.
+    _STORAGE = re.compile(r'\b(?:per|/)\s*(?:hour|day|month)\b', re.IGNORECASE)
+    # '$2.00, prompts <= 200k tokens' / '$4.00, prompts > 200k tokens': the
+    # prompt-size band, published inside the same cell as the headline rate.
+    # The trailing 'tokens' is NOT required: the page writes 'prompts > 200k'
+    # on the output cell and 'prompts > 200k tokens' on the input cell of the
+    # same model, so demanding it silently records a band on one rate and not
+    # the other.
+    _BAND_AMOUNT = re.compile(
+        r'\$\s*([\d,.]+)[^$]*?prompts\s*(<=|>)\s*([\d.]+)\s*k',
+        re.IGNORECASE | re.DOTALL,
+    )
+    _START_DATE = re.compile(
+        r'\b(?:starting|through)\s+[A-Z][a-z]+\s+\d{1,2},?\s+20\d{2}'
+    )
+    # Cells that state, in words or a dash, that there is no rate at all.
+    _NO_RATE = ('-', '—', 'free', 'free of charge', 'not available', 'n/a')
+    _METRICS = (
+        ('input price', 'input'),
+        ('output price', 'output'),
+        ('context caching', 'cache_read'),
+    )
 
-    def parse(self, html: str) -> dict[str, Price]:
+    @classmethod
+    def _metric(cls, label: str) -> str | None:
+        for prefix, metric in cls._METRICS:
+            if label.startswith(prefix):
+                return metric
+        return None
+
+    def parse(self, body: str) -> dict[str, Price]:
         out: dict[str, Price] = {}
-        for chunk in re.split(r'<h2\b', html)[1:]:
-            m = re.search(r'id="(gemini-[^"]+)"', chunk)
-            if not m:
-                continue
-            table = HTMLParser(chunk).css_first('table.pricing-table')
-            if table is None:
-                continue
-            inp = outp = cached = None
-            # start date -> the announced row's fields so far. Keyed by date
-            # because the three cells of one model need not announce the same
-            # one: `gemini-4-argon` doubles on 2026-12-01, the 2.5 family on
-            # 2027-01-01.
+        for model_id, section in _md_sections(body):
+            # A band in one metric's cell and an announced date in another is a
+            # model whose FUTURE price cannot be stated without guessing:
+            # `price_at` selects a scheduled row as a COMPLETE replacement, so
+            # publishing one that omits the surcharge would bill the announced
+            # price with no band at all. Raise — a red source is loud, a
+            # silently shortened schedule is not.
+            if self._BAND_AMOUNT.search(section) and self._START_DATE.search(section):
+                raise ValueError(
+                    f'{model_id}: a prompt-size band and an announced date in one '
+                    'model — the announced rate cannot be published with its band'
+                )
+            cells = _md_paid_column(section)
+            rates: dict[str, float | None] = {}
+            above: int | None = None
+            band_rates: dict[str, float | None] = {}
             announced: dict[str, dict[str, float]] = {}
-            for tr in table.css('tr'):
-                c = [n.text(strip=True) for n in tr.css('th, td')]
-                if not c:
+            for label, cell in cells.items():
+                metric = self._metric(label)
+                if metric is None:
                     continue
-                label = c[0].lower()
-                if label.startswith('input price'):
-                    metric = 'input'
-                elif label.startswith('output price'):
-                    metric = 'output'
-                elif label.startswith('context caching'):
-                    # Cell reads "$0.15 $1.00 / 1,000,000 tokens per hour"; the
-                    # first figure is the per-token read, the second is storage.
-                    metric = 'cache_read'
-                else:
+                if cell.strip().lower().rstrip('.') in self._NO_RATE:
+                    # Explicit: the vendor states there is no such rate here.
+                    rates[metric] = None
                     continue
-                cell = c[-1]
-                rate = self._token_rate(cell)
-                if metric == 'input':
-                    inp = rate
-                elif metric == 'output':
-                    outp = rate
+                bands = self._BAND_AMOUNT.findall(cell)
+                if bands:
+                    for amount, op, size in bands:
+                        limit = int(float(size.replace(',', '')) * 1_000)
+                        if op == '<=':
+                            rates[metric] = float(amount.replace(',', ''))
+                            above = limit
+                        else:
+                            band_rates[metric] = float(amount.replace(',', ''))
+                            above = limit
+                    if metric not in rates:
+                        raise ValueError(f'{model_id}: {label} states only the band rate')
                 else:
-                    cached = rate
+                    rate = self._token_rate(cell)
+                    if rate is None and self._STORAGE.search(cell):
+                        # Storage priced, token rate not published — a real
+                        # state on this page ('$0.50 / 1,000,000 tokens per
+                        # hour (storage price)'). Nothing to record here, and
+                        # nothing missing either.
+                        rates[metric] = None
+                        continue
+                    if rate is None and metric == 'cache_read':
+                        # Present but unparseable, and this field is a HOLE in
+                        # a row we would otherwise emit: `None` there means
+                        # "the vendor publishes no cache rate", so recording it
+                        # would overwrite a published one on the next refresh.
+                        # Raise instead — the source goes red and the book keeps
+                        # its last good row.
+                        raise ValueError(f'{model_id}: unparseable {label}: {cell[:80]!r}')
+                    # An unparseable input/output means the model has no token
+                    # price at all (`gemini-2.5-flash-image` publishes
+                    # '$0.039 per image' and no per-token output), which is an
+                    # absence of the model, not of a field: it is skipped
+                    # below, exactly as it was before this parser existed.
+                    rates[metric] = rate
                 for start, future in self._announced(cell):
                     announced.setdefault(start, {})[metric] = future
-            if inp is not None and outp is not None:
-                out[m.group(1)] = Price(
-                    input=inp,
-                    output=outp,
-                    cache_read=cached,
-                    scheduled=[
-                        Price(
-                            input=row['input'],
-                            output=row['output'],
-                            cache_read=row.get('cache_read'),
-                            effective_from=start,
-                        )
-                        for start, row in sorted(announced.items())
-                        # Without both token rates there is nothing to charge
-                        # against: half an announced row is not a price.
-                        if 'input' in row and 'output' in row
-                    ]
-                    or None,
+            inp, outp = rates.get('input'), rates.get('output')
+            if inp is None or outp is None:
+                continue
+            price = Price(
+                input=inp,
+                output=outp,
+                cache_read=rates.get('cache_read'),
+                scheduled=[
+                    Price(
+                        input=row['input'],
+                        output=row['output'],
+                        cache_read=row.get('cache_read'),
+                        effective_from=start,
+                    )
+                    for start, row in sorted(announced.items())
+                    # Without both token rates there is nothing to charge
+                    # against: half an announced row is not a price.
+                    if 'input' in row and 'output' in row
+                ]
+                or None,
+            )
+            if above is not None:
+                if 'input' not in band_rates or 'output' not in band_rates:
+                    raise ValueError(
+                        f'{model_id}: band covers only {sorted(band_rates)} — a band '
+                        'without both token rates is not a price'
+                    )
+                price = price.model_copy(
+                    update={
+                        'long_context_above': above,
+                        'long_context': Price(
+                            input=band_rates['input'],
+                            output=band_rates['output'],
+                            cache_read=band_rates.get('cache_read'),
+                        ),
+                    }
                 )
+            out[model_id] = price
         return out
 
+
     def _token_rate(self, cell: str) -> float | None:
-        """The cell's first amount, unless it is priced in something else."""
+        """The cell's first amount, unless it is priced in something else.
+
+        Two disqualifiers, and both are scoped to the amount they qualify
+        rather than to the cell: a cell can hold several amounts, each with its
+        own unit.
+
+        1. A unit word at the amount's own slash or `per` — `$0.039 per image`,
+           `Equivalent to $0.0336 per 1K image`. Reading one of those as a
+           per-1M-token rate is a 64x-class error, not a 1e6 one, so the write
+           guard never sees it.
+        2. Hourly storage, looked for only up to the NEXT amount.
+           `$0.15 $1.00 / 1,000,000 tokens per hour` is a cache-read rate
+           followed by a storage rate and must yield 0.15, while
+           `$0.50 / 1,000,000 tokens per hour` — or the same cell repeated for
+           a later date — is storage alone and must yield nothing. A cell-wide
+           search cannot tell those apart; the next-amount bound can.
+        """
         m = self._AMOUNT.search(cell)
-        if m is None or self._OTHER_UNIT.match(cell[m.end() :]):
+        if m is None:
+            return None
+        rest = cell[m.end() :]
+        if self._OTHER_UNIT.match(rest):
+            return None
+        following = rest.find('$')
+        if self._STORAGE.search(rest if following < 0 else rest[:following]):
             return None
         return float(m.group(1).replace(',', ''))
 

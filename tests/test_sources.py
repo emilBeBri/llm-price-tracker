@@ -750,33 +750,95 @@ def test_first_party_sources_are_registered_before_aggregators():
 
 
 # --------------------------------------------------------------------------- #
-# Google: one <h2 id="gemini-..."> per model, then per-tier tables. The FIRST
-# table is Standard; a later one is Batch at half price.
+# Google: MDX, not HTML. One `##` heading per model carrying its wire id in a
+# `{% id %}` directive, and the prices in a `{% table %}` inside the Standard
+# tab. There is no `<table>`, no `pricing-table` class and no pipe table: the
+# page redirects to aistudio.google.com and serves markdown whatever Accept
+# header is sent, which is why the old scrape read zero models.
 # --------------------------------------------------------------------------- #
-GOOGLE_HTML = """
-<h2 id="gemini-3.6-flash">Gemini 3.6 Flash</h2>
-<table class="pricing-table"><tbody>
-<tr><td>Input price</td><td>Free of charge</td><td>$1.50</td></tr>
-<tr><td>Output price (including thinking tokens)</td><td>Free of charge</td><td>$7.50</td></tr>
-<tr><td>Context caching price</td><td>Free</td><td>$0.15 $1.00 / 1,000,000 tokens per hour</td></tr>
-</tbody></table>
-<table class="pricing-table"><tbody>
-<tr><td>Input price</td><td>Free of charge</td><td>$0.75</td></tr>
-<tr><td>Output price (including thinking tokens)</td><td>Free of charge</td><td>$3.75</td></tr>
-</tbody></table>
-<h2 id="gemini-2.5-flash-image">Gemini 2.5 Flash Image</h2>
-<table class="pricing-table"><tbody>
-<tr><th></th><th>Free Tier</th><th>Paid Tier, per 1M tokens in USD</th></tr>
-<tr><td>Input price</td><td>Not available</td><td>$0.30 (text / image)</td></tr>
-<tr><td>Output price</td><td>Not available</td><td>$0.039 per image*</td></tr>
-</tbody></table>
-<h2 id="not-a-model">Something else</h2>
-<p>no table</p>
+GOOGLE_MD = """
+## Gemini 3.6 Flash  {% id="gemini-3.6-flash" %}
+
+{% tabs %}
+  {% tab title="Standard" %}
+  {% table %}
+  * Feature
+  * Free Tier
+  * Paid Tier, per 1M tokens in USD
+
+  ---
+
+  * Input price
+  * Free of charge
+  * $1.50
+
+  ---
+
+  * Output price (including thinking tokens)
+  * Free of charge
+  * $7.50
+
+  ---
+
+  * Context caching price
+  * Free
+  * $0.15 $1.00 / 1,000,000 tokens per hour
+
+  {% /table %}
+  {% /tab %}
+
+  {% tab title="Batch" %}
+  {% table %}
+  * Feature
+  * Paid Tier, per 1M tokens in USD
+
+  ---
+
+  * Input price
+  * $0.75
+
+  ---
+
+  * Output price (including thinking tokens)
+  * $3.75
+
+  {% /table %}
+  {% /tab %}
+{% /tabs %}
+
+## Gemini 2.5 Flash Image  {% id="gemini-2.5-flash-image" %}
+
+{% tabs %}
+  {% tab title="Standard" %}
+  {% table %}
+  * Feature
+  * Free Tier
+  * Paid Tier, per 1M tokens in USD
+
+  ---
+
+  * Input price
+  * Not available
+  * $0.30 (text / image)
+
+  ---
+
+  * Output price
+  * Not available
+  * $0.039 per image{% sup %}*{% /sup %}
+
+  {% /table %}
+  {% /tab %}
+{% /tabs %}
+
+## Something else  {% id="not-a-model" %}
+
+Prose only, no tab and no table.
 """
 
 
 def test_google_takes_standard_tier_and_the_paid_column():
-    prices = GoogleSource().parse(GOOGLE_HTML)
+    prices = GoogleSource().parse(GOOGLE_MD)
     flash = prices['gemini-3.6-flash']
     assert (flash.input, flash.output) == (1.50, 7.50)
     # First figure is the per-token cache read; the second is hourly storage.
@@ -784,30 +846,121 @@ def test_google_takes_standard_tier_and_the_paid_column():
 
 
 def test_google_skips_sections_without_a_pricing_table():
-    assert set(GoogleSource().parse(GOOGLE_HTML)) == {'gemini-3.6-flash'}
+    assert set(GoogleSource().parse(GOOGLE_MD)) == {'gemini-3.6-flash'}
 
 
 def test_google_refuses_a_cell_priced_in_something_other_than_tokens():
     # '$0.039 per image' under a 'per 1M tokens' header: read as a token rate
     # it records a $2.50/M model at $0.039/M, 64x low and far under the
     # >$1000/M write gate. No token price, no model.
-    assert 'gemini-2.5-flash-image' not in GoogleSource().parse(GOOGLE_HTML)
+    assert 'gemini-2.5-flash-image' not in GoogleSource().parse(GOOGLE_MD)
+
+
+def _md_model(model_id: str, *rows: tuple[str, str]) -> str:
+    """One MDX model section with a Standard tab, for cell-shaped tests."""
+    body = [f'## Model  {{% id="{model_id}" %}}', '', '{% tabs %}',
+            '  {% tab title="Standard" %}', '  {% table %}',
+            '  * Feature', '  * Free Tier', '  * Paid Tier, per 1M tokens in USD']
+    for label, cell in rows:
+        body += ['', '  ---', '', f'  * {label}', '  * Not available', f'  * {cell}']
+    body += ['  {% /table %}', '  {% /tab %}', '{% /tabs %}']
+    return '\n'.join(body)
 
 
 def test_google_keeps_the_token_rate_when_a_cell_carries_both_units():
-    both = (
-        '<h2 id="gemini-9-image">x</h2>'
-        '<table class="pricing-table"><tbody>'
-        '<tr><td>Input price</td><td>$2.00 (text/image),equivalent to '
-        '$0.0011 per image*</td></tr>'
-        '<tr><td>Output price</td><td>$12.00 (text and thinking)$120.00 '
-        '(images)Equivalent to $0.134 per 1K image**</td></tr>'
-        '<tr><td>Context caching price</td><td>$0.15 $1.00 / 1,000,000 tokens '
-        'per hour</td></tr>'
-        '</tbody></table>'
+    both = _md_model(
+        'gemini-9-image',
+        ('Input price', '$2.00 (text/image) $0.0011 per image'),
+        ('Output price', '$12.00 (text and thinking) $120.00 (images)'),
+        ('Context caching price', '$0.15 $1.00 / 1,000,000 tokens per hour'),
     )
     price = GoogleSource().parse(both)['gemini-9-image']
     assert (price.input, price.output, price.cache_read) == (2.0, 12.0, 0.15)
+
+
+def test_google_records_the_prompt_size_band_on_the_same_row():
+    """The band is published INSIDE the paid cell, comma-qualified, and the
+    'tokens' word is missing on the output cell of the live page — so a regex
+    that demands it records a band on one rate and not the other."""
+    banded = _md_model(
+        'gemini-9-pro',
+        ('Input price', '$2.00, prompts <= 200k tokens $4.00, prompts > 200k tokens'),
+        ('Output price', '$12.00, prompts <= 200k tokens $18.00, prompts > 200k'),
+        (
+            'Context caching price',
+            '$0.20, prompts <= 200k tokens $0.40, prompts > 200k '
+            '$4.50 / 1,000,000 tokens per hour (storage price)',
+        ),
+    )
+    price = GoogleSource().parse(banded)['gemini-9-pro']
+    assert (price.input, price.output, price.cache_read) == (2.0, 12.0, 0.20)
+    assert price.long_context_above == 200_000
+    assert (price.long_context.input, price.long_context.output) == (4.0, 18.0)
+    assert price.long_context.cache_read == 0.40
+
+
+def test_google_reads_markdown_embedded_in_an_html_shell():
+    """What the FETCHER actually receives: the markdown wrapped in an HTML
+    document with its quotes and angle brackets escaped. Parsing the clean
+    markdown is not enough — this is the shape that ships."""
+    wrapped = GOOGLE_MD.replace('"', '&quot;').replace('&', '&amp;').replace(
+        '&amp;quot;', '&quot;'
+    )
+    assert '&quot;gemini-3.6-flash&quot;' in wrapped
+    flash = GoogleSource().parse(wrapped)['gemini-3.6-flash']
+    assert (flash.input, flash.output) == (1.50, 7.50)
+
+
+def test_google_raises_rather_than_recording_an_absent_cache_rate():
+    """A cache cell that exists but cannot be read must not become
+    `cache_read=None` — that says 'the vendor publishes no such rate' and the
+    next refresh would delete a rate that is still on the page."""
+    unreadable = _md_model(
+        'gemini-9-cache',
+        ('Input price', '$2.00'),
+        ('Output price', '$12.00'),
+        ('Context caching price', '$0.039 per image'),
+    )
+    with pytest.raises(ValueError):
+        GoogleSource().parse(unreadable)
+
+
+def test_google_raises_when_a_band_and_an_announcement_share_a_model():
+    """A scheduled row replaces the current one WHOLESALE, so publishing an
+    announced rate that omits the band would bill the announced price with no
+    surcharge — and an announcement-only removal is not an alert. Refuse."""
+    mixed = _md_model(
+        'gemini-9-mixed',
+        ('Input price', '$2.00, prompts <= 200k tokens $4.00, prompts > 200k tokens'),
+        ('Output price', '$12.00 through December 31, 2026. $18.00 starting January 1, 2027.'),
+    )
+    with pytest.raises(ValueError):
+        GoogleSource().parse(mixed)
+
+
+@pytest.mark.parametrize(
+    ('cell', 'expected'),
+    [
+        ('$0.15 $1.00 / 1,000,000 tokens per hour', 0.15),
+        ('$0.50 / 1,000,000 tokens per hour', None),
+        (
+            '$0.50 / 1,000,000 tokens per hour, rising to '
+            '$1.00 / 1,000,000 tokens per hour',
+            None,
+        ),
+        ('$0.50 / 1,000,000 tokens per month', None),
+        ('$0.039 per image', None),
+        ('Equivalent to $0.0336 per 1K image', None),
+        ('$0.10 (text / image / video)', 0.10),
+        ('$3 (text and thinking)', 3.0),
+        ('$0.10 / 1M tokens', 0.10),
+        ('Not available', None),
+    ],
+)
+def test_google_binds_a_unit_qualifier_to_the_amount_it_follows(cell, expected):
+    """Two storage prices in one cell (the reviewer's counterexample) must not
+    read as a token rate just because there is a second `$`."""
+    assert GoogleSource()._token_rate(cell) == expected
 
 
 # --------------------------------------------------------------------------- #
@@ -817,25 +970,47 @@ def test_google_keeps_the_token_rate_when_a_cell_carries_both_units():
 # standing price and threw the doubling away — the book would have had nothing
 # to say on the day eleven Gemini models doubled at once.
 # --------------------------------------------------------------------------- #
-GOOGLE_PROMO_HTML = """
-<h2 id="gemini-4-argon">Gemini 4 Argon</h2>
-<table class="pricing-table"><tbody>
-<tr><th></th><th>Free Tier</th><th>Paid Tier, per 1M tokens in USD</th></tr>
-<tr><td>Input price</td><td>Not available</td><td>$2.00 through November 30, 2026. $4.00 starting December 1, 2026.</td></tr>
-<tr><td>Output price (including thinking tokens)</td><td>Not available</td><td>$10.00 through November 30, 2026. $20.00 starting December 1, 2026.</td></tr>
-<tr><td>Context caching price</td><td>Not available</td><td>$0.10 through November 30, 2026. $0.20 starting December 1, 2026. Implicit caching only (explicit caching is not supported).</td></tr>
-</tbody></table>
-<h2 id="gemini-3.8-flash-tts">Gemini 3.8 Flash TTS</h2>
-<table class="pricing-table"><tbody>
-<tr><td>Input price</td><td>Not available</td><td>$0.50 (text) through December 31, 2026. $1.00 (text) starting January 1, 2027.</td></tr>
-<tr><td>Output price</td><td>Not available</td><td>$9.00 (audio) through December 31, 2026. $18.00 (audio) starting January 1, 2027. Equivalent to $0.00225 per 10s audio * through December 31, 2026.</td></tr>
-<tr><td>Context caching price</td><td>Not available</td><td>$0.50 / 1,000,000 tokens per hour (storage price) starting January 1, 2027.</td></tr>
-</tbody></table>
-"""
+GOOGLE_PROMO_MD = (
+    _md_model(
+        'gemini-4-argon',
+        (
+            'Input price',
+            '$2.00 through November 30, 2026. $4.00 starting December 1, 2026.',
+        ),
+        (
+            'Output price (including thinking tokens)',
+            '$10.00 through November 30, 2026. $20.00 starting December 1, 2026.',
+        ),
+        (
+            'Context caching price',
+            '$0.10 through November 30, 2026. $0.20 starting December 1, 2026. '
+            'Implicit caching only.',
+        ),
+    )
+    + '\n\n'
+    + _md_model(
+        'gemini-3.8-flash-tts',
+        (
+            'Input price',
+            '$0.50 (text) through December 31, 2026. $1.00 (text) '
+            'starting January 1, 2027.',
+        ),
+        (
+            'Output price',
+            '$9.00 (audio) through December 31, 2026. $18.00 (audio) '
+            'starting January 1, 2027.',
+        ),
+        (
+            'Context caching price',
+            '$0.50 / 1,000,000 tokens per hour (storage price) '
+            'starting January 1, 2027.',
+        ),
+    )
+)
 
 
 def test_google_records_the_announced_rate_next_to_the_one_in_force():
-    argon = GoogleSource().parse(GOOGLE_PROMO_HTML)['gemini-4-argon']
+    argon = GoogleSource().parse(GOOGLE_PROMO_MD)['gemini-4-argon']
     # The rate in force today is the first amount, unchanged.
     assert (argon.input, argon.output, argon.cache_read) == (2.0, 10.0, 0.10)
     # And the announced row keeps the date the vendor published with it.
@@ -848,20 +1023,17 @@ def test_google_does_not_read_a_storage_figure_as_the_announced_rate():
     """'$0.50 / 1,000,000 tokens per hour' is cache storage, and the per-10s
     audio figure is not a token rate either. The announcement is anchored on
     'starting <date>', so neither can be mistaken for the next token price."""
-    tts = GoogleSource().parse(GOOGLE_PROMO_HTML)['gemini-3.8-flash-tts']
+    tts = GoogleSource().parse(GOOGLE_PROMO_MD)['gemini-3.8-flash-tts']
     assert [(p.input, p.output, p.cache_read) for p in tts.scheduled] == [(1.0, 18.0, None)]
 
 
 def test_google_announced_row_needs_both_token_rates():
     """Half an announced row is not a price: without input AND output there is
     nothing to charge a call against."""
-    half = (
-        '<h2 id="gemini-9-partial">x</h2>'
-        '<table class="pricing-table"><tbody>'
-        '<tr><td>Input price</td><td>$2.00 through November 30, 2026. $4.00 '
-        'starting December 1, 2026.</td></tr>'
-        '<tr><td>Output price</td><td>$10.00</td></tr>'
-        '</tbody></table>'
+    half = _md_model(
+        'gemini-9-partial',
+        ('Input price', '$2.00 through November 30, 2026. $4.00 starting December 1, 2026.'),
+        ('Output price', '$10.00'),
     )
     price = GoogleSource().parse(half)['gemini-9-partial']
     assert price.input == 2.0

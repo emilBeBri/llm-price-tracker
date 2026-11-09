@@ -123,23 +123,25 @@ def anthropic_usage_prices(body: str, url: str) -> dict[str, UsagePrice]:
     }
 
 
-def google_usage_prices(html: str, url: str) -> dict[str, UsagePrice]:
+def google_usage_prices(body: str, url: str) -> dict[str, UsagePrice]:
+    """Google's image-modality and grounding cards, from the MDX pricing page.
+
+    The page stopped serving HTML: `curl -H 'Accept: text/html,*/*'` follows a
+    redirect to aistudio.google.com and returns markdown with `{% table %}`
+    blocks, so the `<h2>` + `table.pricing-table` scrape read zero models for
+    as long as it was live. The cells themselves are unchanged, which is why
+    `_modality_rates` and `_service_rate` below still do the work: an image
+    model publishes `$0.50 (text/image)` on the input row and `$3 (text and
+    thinking)` / `$60.00 (images)` on the output row, and the grounding rows
+    read '... then $14 per 1,000 requests'.
+    """
+    from .vendors import _md_paid_column, _md_sections
+
     cards: dict[str, UsagePrice] = {}
-    for chunk in re.split(r'<h2\b', html)[1:]:
-        match = re.search(r'id="(gemini-[^"]+)"', chunk)
-        if match is None:
+    for model, section in _md_sections(body):
+        cells = _md_paid_column(section)
+        if not cells:
             continue
-        model = match[1]
-        table = HTMLParser(chunk).css_first('table.pricing-table')
-        if table is None:
-            continue
-        cells = {}
-        for row in table.css('tr'):
-            values = [
-                node.text(separator=' ', strip=True) for node in row.css('th, td')
-            ]
-            if values:
-                cells[values[0].lower()] = values[-1]
         if 'image' in model or 'nano-banana' in model:
             input_cell = next(
                 (v for k, v in cells.items() if k.startswith('input price')), ''

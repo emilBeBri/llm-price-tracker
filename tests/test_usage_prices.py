@@ -65,15 +65,36 @@ def test_anthropic_search_price_comes_from_the_published_sentence(currency):
     assert AnthropicSource().parse_usage_prices('Web search is supported.') == {}
 
 
+def _md_usage(model: str, *rows: tuple[str, str]) -> str:
+    """One MDX model section with a Standard tab, Google's current rendering."""
+    body = [
+        f'## Model  {{% id="{model}" %}}',
+        '',
+        '{% tabs %}',
+        '  {% tab title="Standard" %}',
+        '  {% table %}',
+        '  * Feature',
+        '  * Free Tier',
+        '  * Paid Tier, per 1M tokens in USD',
+    ]
+    for label, cell in rows:
+        body += ['', '  ---', '', f'  * {label}', '  * Not available', f'  * {cell}']
+    body += ['  {% /table %}', '  {% /tab %}', '{% /tabs %}']
+    return '\n'.join(body)
+
+
 def test_google_reads_image_token_rate_not_per_image_equivalent():
-    body = """<h2 id="gemini-nano-banana-2.1">Images</h2>
-    <table class="pricing-table">
-    <tr><td>Input price</td><td>$1.50 (text/image/video)</td></tr>
-    <tr><td>Output price</td><td>$7.50 (text and thinking) $30.00 (images)
-    Equivalent to $0.0336 per 1K image</td></tr>
-    <tr><td>Grounding with Google Search</td><td>5,000 free, then $14 per 1,000 requests</td></tr>
-    <tr><td>Grounding with Google Maps</td><td>5,000 free, then $14 / 1,000 search queries</td></tr>
-    </table>"""
+    body = _md_usage(
+        'gemini-nano-banana-2.1',
+        ('Input price', '$1.50 (text/image/video)'),
+        (
+            'Output price',
+            '$7.50 (text and thinking) $30.00 (images) '
+            'Equivalent to $0.0336 per 1K image',
+        ),
+        ('Grounding with Google Search', '5,000 free, then $14 per 1,000 requests'),
+        ('Grounding with Google Maps', '5,000 free, then $14 / 1,000 search queries'),
+    )
     cards = GoogleSource().parse_usage_prices(body)
     image = cards['google.image.gemini-nano-banana-2.1']
     assert image.rates['output_text'].amount == 7.5
