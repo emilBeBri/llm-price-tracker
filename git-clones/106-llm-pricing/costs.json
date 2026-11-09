@@ -1,0 +1,942 @@
+{
+  "source": {
+    "anthropic": "https://claude.com/pricing",
+    "openai": "https://developers.openai.com/api/docs/pricing",
+    "google": "https://aistudio.google.com/docs/pricing"
+  },
+  "retrieved": "2026-11-02",
+  "requests_modelled": 1000,
+  "workloads": {
+    "agentic coding loop": {
+      "assumptions": {
+        "input": 120000,
+        "output": 4000,
+        "cached_share": 0.88,
+        "cache_rewrite_every": 8,
+        "about": "long system prompt and file context resent every turn"
+      },
+      "rows": [
+        {
+          "model": "Gemini 2.5 Flash-Lite",
+          "vendor": "Google",
+          "tier": "small",
+          "cost": 4.1,
+          "rank": 1
+        },
+        {
+          "model": "gpt-6-luna",
+          "vendor": "OpenAI",
+          "tier": "small",
+          "cost": 4.5,
+          "rank": 2
+        },
+        {
+          "model": "Gemini 3.1 Flash-Lite",
+          "vendor": "Google",
+          "tier": "small",
+          "cost": 12.24,
+          "rank": 3
+        },
+        {
+          "model": "Claude Haiku 5.5",
+          "vendor": "Anthropic",
+          "tier": "small",
+          "cost": 30.73,
+          "rank": 4
+        },
+        {
+          "model": "Gemini 3.8 Flash",
+          "vendor": "Google",
+          "tier": "mid",
+          "cost": 33.72,
+          "rank": 5
+        },
+        {
+          "model": "gpt-6.1-terra",
+          "vendor": "OpenAI",
+          "tier": "mid",
+          "cost": 39.68,
+          "rank": 6
+        },
+        {
+          "model": "gpt-6.1-sol",
+          "vendor": "OpenAI",
+          "tier": "mid",
+          "cost": 79.36,
+          "rank": 7
+        },
+        {
+          "model": "Gemini 4 Argon",
+          "vendor": "Google",
+          "tier": "mid",
+          "cost": 79.36,
+          "rank": 8
+        },
+        {
+          "model": "Claude Sonnet 5.5",
+          "vendor": "Anthropic",
+          "tier": "mid",
+          "cost": 112.36,
+          "rank": 9
+        },
+        {
+          "model": "gpt-5.6-sol",
+          "vendor": "OpenAI",
+          "tier": "flagship",
+          "cost": 179.84,
+          "rank": 10
+        },
+        {
+          "model": "Claude Opus 5.5",
+          "vendor": "Anthropic",
+          "tier": "flagship",
+          "cost": 224.72,
+          "rank": 11
+        },
+        {
+          "model": "gpt-6-astra",
+          "vendor": "OpenAI",
+          "tier": "frontier",
+          "cost": 449.6,
+          "rank": 12
+        },
+        {
+          "model": "Claude Fable 5.1",
+          "vendor": "Anthropic",
+          "tier": "frontier",
+          "cost": 535.4,
+          "rank": 13
+        }
+      ]
+    },
+    "RAG chat": {
+      "assumptions": {
+        "input": 40000,
+        "output": 600,
+        "cached_share": 0.85,
+        "cache_rewrite_every": 20,
+        "about": "fixed corpus in the prompt, short answers"
+      },
+      "rows": [
+        {
+          "model": "Gemini 2.5 Flash-Lite",
+          "vendor": "Google",
+          "tier": "small",
+          "cost": 1.18,
+          "rank": 1
+        },
+        {
+          "model": "gpt-6-luna",
+          "vendor": "OpenAI",
+          "tier": "small",
+          "cost": 1.24,
+          "rank": 2
+        },
+        {
+          "model": "Claude Haiku 5.5",
+          "vendor": "Anthropic",
+          "tier": "small",
+          "cost": 1.45,
+          "rank": 3
+        },
+        {
+          "model": "Gemini 3.1 Flash-Lite",
+          "vendor": "Google",
+          "tier": "small",
+          "cost": 3.25,
+          "rank": 4
+        },
+        {
+          "model": "Gemini 3.8 Flash",
+          "vendor": "Google",
+          "tier": "mid",
+          "cost": 9.3,
+          "rank": 5
+        },
+        {
+          "model": "gpt-6.1-terra",
+          "vendor": "OpenAI",
+          "tier": "mid",
+          "cost": 10.7,
+          "rank": 6
+        },
+        {
+          "model": "gpt-6.1-sol",
+          "vendor": "OpenAI",
+          "tier": "mid",
+          "cost": 21.4,
+          "rank": 7
+        },
+        {
+          "model": "Gemini 4 Argon",
+          "vendor": "Google",
+          "tier": "mid",
+          "cost": 21.4,
+          "rank": 8
+        },
+        {
+          "model": "Claude Sonnet 5.5",
+          "vendor": "Anthropic",
+          "tier": "mid",
+          "cost": 25.65,
+          "rank": 9
+        },
+        {
+          "model": "gpt-5.6-sol",
+          "vendor": "OpenAI",
+          "tier": "flagship",
+          "cost": 49.6,
+          "rank": 10
+        },
+        {
+          "model": "Claude Opus 5.5",
+          "vendor": "Anthropic",
+          "tier": "flagship",
+          "cost": 51.3,
+          "rank": 11
+        },
+        {
+          "model": "Claude Fable 5.1",
+          "vendor": "Anthropic",
+          "tier": "frontier",
+          "cost": 119.75,
+          "rank": 12
+        },
+        {
+          "model": "gpt-6-astra",
+          "vendor": "OpenAI",
+          "tier": "frontier",
+          "cost": 124.0,
+          "rank": 13
+        }
+      ]
+    },
+    "bulk classification": {
+      "assumptions": {
+        "input": 800,
+        "output": 40,
+        "cached_share": 0.0,
+        "cache_rewrite_every": 0,
+        "about": "short unique inputs, one-word answers, nothing to cache"
+      },
+      "rows": [
+        {
+          "model": "Claude Haiku 5.5",
+          "vendor": "Anthropic",
+          "tier": "small",
+          "cost": 0.1,
+          "rank": 1
+        },
+        {
+          "model": "gpt-6-luna",
+          "vendor": "OpenAI",
+          "tier": "small",
+          "cost": 0.1,
+          "rank": 2
+        },
+        {
+          "model": "Gemini 2.5 Flash-Lite",
+          "vendor": "Google",
+          "tier": "small",
+          "cost": 0.1,
+          "rank": 3
+        },
+        {
+          "model": "Gemini 3.1 Flash-Lite",
+          "vendor": "Google",
+          "tier": "small",
+          "cost": 0.26,
+          "rank": 4
+        },
+        {
+          "model": "Gemini 3.8 Flash",
+          "vendor": "Google",
+          "tier": "mid",
+          "cost": 0.75,
+          "rank": 5
+        },
+        {
+          "model": "gpt-6.1-terra",
+          "vendor": "OpenAI",
+          "tier": "mid",
+          "cost": 1.0,
+          "rank": 6
+        },
+        {
+          "model": "Claude Sonnet 5.5",
+          "vendor": "Anthropic",
+          "tier": "mid",
+          "cost": 2.0,
+          "rank": 7
+        },
+        {
+          "model": "gpt-6.1-sol",
+          "vendor": "OpenAI",
+          "tier": "mid",
+          "cost": 2.0,
+          "rank": 8
+        },
+        {
+          "model": "Gemini 4 Argon",
+          "vendor": "Google",
+          "tier": "mid",
+          "cost": 2.0,
+          "rank": 9
+        },
+        {
+          "model": "Claude Opus 5.5",
+          "vendor": "Anthropic",
+          "tier": "flagship",
+          "cost": 4.0,
+          "rank": 10
+        },
+        {
+          "model": "gpt-5.6-sol",
+          "vendor": "OpenAI",
+          "tier": "flagship",
+          "cost": 4.0,
+          "rank": 11
+        },
+        {
+          "model": "Claude Fable 5.1",
+          "vendor": "Anthropic",
+          "tier": "frontier",
+          "cost": 10.0,
+          "rank": 12
+        },
+        {
+          "model": "gpt-6-astra",
+          "vendor": "OpenAI",
+          "tier": "frontier",
+          "cost": 10.0,
+          "rank": 13
+        }
+      ]
+    },
+    "long-document synthesis": {
+      "assumptions": {
+        "input": 180000,
+        "output": 5000,
+        "cached_share": 0.0,
+        "cache_rewrite_every": 0,
+        "about": "a different large document every time"
+      },
+      "rows": [
+        {
+          "model": "Gemini 2.5 Flash-Lite",
+          "vendor": "Google",
+          "tier": "small",
+          "cost": 20.0,
+          "rank": 1
+        },
+        {
+          "model": "gpt-6-luna",
+          "vendor": "OpenAI",
+          "tier": "small",
+          "cost": 20.5,
+          "rank": 2
+        },
+        {
+          "model": "Gemini 3.1 Flash-Lite",
+          "vendor": "Google",
+          "tier": "small",
+          "cost": 52.5,
+          "rank": 3
+        },
+        {
+          "model": "Claude Haiku 5.5",
+          "vendor": "Anthropic",
+          "tier": "small",
+          "cost": 102.5,
+          "rank": 4
+        },
+        {
+          "model": "Gemini 3.8 Flash",
+          "vendor": "Google",
+          "tier": "mid",
+          "cost": 153.75,
+          "rank": 5
+        },
+        {
+          "model": "gpt-6.1-terra",
+          "vendor": "OpenAI",
+          "tier": "mid",
+          "cost": 205.0,
+          "rank": 6
+        },
+        {
+          "model": "Claude Sonnet 5.5",
+          "vendor": "Anthropic",
+          "tier": "mid",
+          "cost": 410.0,
+          "rank": 7
+        },
+        {
+          "model": "gpt-6.1-sol",
+          "vendor": "OpenAI",
+          "tier": "mid",
+          "cost": 410.0,
+          "rank": 8
+        },
+        {
+          "model": "Gemini 4 Argon",
+          "vendor": "Google",
+          "tier": "mid",
+          "cost": 410.0,
+          "rank": 9
+        },
+        {
+          "model": "Claude Opus 5.5",
+          "vendor": "Anthropic",
+          "tier": "flagship",
+          "cost": 820.0,
+          "rank": 10
+        },
+        {
+          "model": "gpt-5.6-sol",
+          "vendor": "OpenAI",
+          "tier": "flagship",
+          "cost": 820.0,
+          "rank": 11
+        },
+        {
+          "model": "Claude Fable 5.1",
+          "vendor": "Anthropic",
+          "tier": "frontier",
+          "cost": 2050.0,
+          "rank": 12
+        },
+        {
+          "model": "gpt-6-astra",
+          "vendor": "OpenAI",
+          "tier": "frontier",
+          "cost": 2050.0,
+          "rank": 13
+        }
+      ]
+    }
+  },
+  "rank_inversions": [
+    {
+      "a": "Gemini 3.1 Flash-Lite",
+      "b": "Claude Haiku 5.5",
+      "workload_1": "agentic coding loop",
+      "workload_2": "RAG chat",
+      "w1_cheaper": "Gemini 3.1 Flash-Lite",
+      "w2_cheaper": "Claude Haiku 5.5",
+      "w1_costs": [
+        12.24,
+        30.73
+      ],
+      "w2_costs": [
+        3.25,
+        1.45
+      ]
+    },
+    {
+      "a": "gpt-6-astra",
+      "b": "Claude Fable 5.1",
+      "workload_1": "agentic coding loop",
+      "workload_2": "RAG chat",
+      "w1_cheaper": "gpt-6-astra",
+      "w2_cheaper": "Claude Fable 5.1",
+      "w1_costs": [
+        449.6,
+        535.4
+      ],
+      "w2_costs": [
+        124.0,
+        119.75
+      ]
+    },
+    {
+      "a": "Gemini 2.5 Flash-Lite",
+      "b": "gpt-6-luna",
+      "workload_1": "agentic coding loop",
+      "workload_2": "bulk classification",
+      "w1_cheaper": "Gemini 2.5 Flash-Lite",
+      "w2_cheaper": "gpt-6-luna",
+      "w1_costs": [
+        4.1,
+        4.5
+      ],
+      "w2_costs": [
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "a": "Gemini 2.5 Flash-Lite",
+      "b": "Claude Haiku 5.5",
+      "workload_1": "agentic coding loop",
+      "workload_2": "bulk classification",
+      "w1_cheaper": "Gemini 2.5 Flash-Lite",
+      "w2_cheaper": "Claude Haiku 5.5",
+      "w1_costs": [
+        4.1,
+        30.73
+      ],
+      "w2_costs": [
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "a": "gpt-6-luna",
+      "b": "Claude Haiku 5.5",
+      "workload_1": "agentic coding loop",
+      "workload_2": "bulk classification",
+      "w1_cheaper": "gpt-6-luna",
+      "w2_cheaper": "Claude Haiku 5.5",
+      "w1_costs": [
+        4.5,
+        30.73
+      ],
+      "w2_costs": [
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "a": "Gemini 3.1 Flash-Lite",
+      "b": "Claude Haiku 5.5",
+      "workload_1": "agentic coding loop",
+      "workload_2": "bulk classification",
+      "w1_cheaper": "Gemini 3.1 Flash-Lite",
+      "w2_cheaper": "Claude Haiku 5.5",
+      "w1_costs": [
+        12.24,
+        30.73
+      ],
+      "w2_costs": [
+        0.26,
+        0.1
+      ]
+    },
+    {
+      "a": "gpt-6.1-sol",
+      "b": "Claude Sonnet 5.5",
+      "workload_1": "agentic coding loop",
+      "workload_2": "bulk classification",
+      "w1_cheaper": "gpt-6.1-sol",
+      "w2_cheaper": "Claude Sonnet 5.5",
+      "w1_costs": [
+        79.36,
+        112.36
+      ],
+      "w2_costs": [
+        2.0,
+        2.0
+      ]
+    },
+    {
+      "a": "Gemini 4 Argon",
+      "b": "Claude Sonnet 5.5",
+      "workload_1": "agentic coding loop",
+      "workload_2": "bulk classification",
+      "w1_cheaper": "Gemini 4 Argon",
+      "w2_cheaper": "Claude Sonnet 5.5",
+      "w1_costs": [
+        79.36,
+        112.36
+      ],
+      "w2_costs": [
+        2.0,
+        2.0
+      ]
+    },
+    {
+      "a": "gpt-5.6-sol",
+      "b": "Claude Opus 5.5",
+      "workload_1": "agentic coding loop",
+      "workload_2": "bulk classification",
+      "w1_cheaper": "gpt-5.6-sol",
+      "w2_cheaper": "Claude Opus 5.5",
+      "w1_costs": [
+        179.84,
+        224.72
+      ],
+      "w2_costs": [
+        4.0,
+        4.0
+      ]
+    },
+    {
+      "a": "gpt-6-astra",
+      "b": "Claude Fable 5.1",
+      "workload_1": "agentic coding loop",
+      "workload_2": "bulk classification",
+      "w1_cheaper": "gpt-6-astra",
+      "w2_cheaper": "Claude Fable 5.1",
+      "w1_costs": [
+        449.6,
+        535.4
+      ],
+      "w2_costs": [
+        10.0,
+        10.0
+      ]
+    },
+    {
+      "a": "gpt-6.1-sol",
+      "b": "Claude Sonnet 5.5",
+      "workload_1": "agentic coding loop",
+      "workload_2": "long-document synthesis",
+      "w1_cheaper": "gpt-6.1-sol",
+      "w2_cheaper": "Claude Sonnet 5.5",
+      "w1_costs": [
+        79.36,
+        112.36
+      ],
+      "w2_costs": [
+        410.0,
+        410.0
+      ]
+    },
+    {
+      "a": "Gemini 4 Argon",
+      "b": "Claude Sonnet 5.5",
+      "workload_1": "agentic coding loop",
+      "workload_2": "long-document synthesis",
+      "w1_cheaper": "Gemini 4 Argon",
+      "w2_cheaper": "Claude Sonnet 5.5",
+      "w1_costs": [
+        79.36,
+        112.36
+      ],
+      "w2_costs": [
+        410.0,
+        410.0
+      ]
+    },
+    {
+      "a": "gpt-5.6-sol",
+      "b": "Claude Opus 5.5",
+      "workload_1": "agentic coding loop",
+      "workload_2": "long-document synthesis",
+      "w1_cheaper": "gpt-5.6-sol",
+      "w2_cheaper": "Claude Opus 5.5",
+      "w1_costs": [
+        179.84,
+        224.72
+      ],
+      "w2_costs": [
+        820.0,
+        820.0
+      ]
+    },
+    {
+      "a": "gpt-6-astra",
+      "b": "Claude Fable 5.1",
+      "workload_1": "agentic coding loop",
+      "workload_2": "long-document synthesis",
+      "w1_cheaper": "gpt-6-astra",
+      "w2_cheaper": "Claude Fable 5.1",
+      "w1_costs": [
+        449.6,
+        535.4
+      ],
+      "w2_costs": [
+        2050.0,
+        2050.0
+      ]
+    },
+    {
+      "a": "Gemini 2.5 Flash-Lite",
+      "b": "gpt-6-luna",
+      "workload_1": "RAG chat",
+      "workload_2": "bulk classification",
+      "w1_cheaper": "Gemini 2.5 Flash-Lite",
+      "w2_cheaper": "gpt-6-luna",
+      "w1_costs": [
+        1.18,
+        1.24
+      ],
+      "w2_costs": [
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "a": "Gemini 2.5 Flash-Lite",
+      "b": "Claude Haiku 5.5",
+      "workload_1": "RAG chat",
+      "workload_2": "bulk classification",
+      "w1_cheaper": "Gemini 2.5 Flash-Lite",
+      "w2_cheaper": "Claude Haiku 5.5",
+      "w1_costs": [
+        1.18,
+        1.45
+      ],
+      "w2_costs": [
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "a": "gpt-6-luna",
+      "b": "Claude Haiku 5.5",
+      "workload_1": "RAG chat",
+      "workload_2": "bulk classification",
+      "w1_cheaper": "gpt-6-luna",
+      "w2_cheaper": "Claude Haiku 5.5",
+      "w1_costs": [
+        1.24,
+        1.45
+      ],
+      "w2_costs": [
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "a": "gpt-6.1-sol",
+      "b": "Claude Sonnet 5.5",
+      "workload_1": "RAG chat",
+      "workload_2": "bulk classification",
+      "w1_cheaper": "gpt-6.1-sol",
+      "w2_cheaper": "Claude Sonnet 5.5",
+      "w1_costs": [
+        21.4,
+        25.65
+      ],
+      "w2_costs": [
+        2.0,
+        2.0
+      ]
+    },
+    {
+      "a": "Gemini 4 Argon",
+      "b": "Claude Sonnet 5.5",
+      "workload_1": "RAG chat",
+      "workload_2": "bulk classification",
+      "w1_cheaper": "Gemini 4 Argon",
+      "w2_cheaper": "Claude Sonnet 5.5",
+      "w1_costs": [
+        21.4,
+        25.65
+      ],
+      "w2_costs": [
+        2.0,
+        2.0
+      ]
+    },
+    {
+      "a": "gpt-5.6-sol",
+      "b": "Claude Opus 5.5",
+      "workload_1": "RAG chat",
+      "workload_2": "bulk classification",
+      "w1_cheaper": "gpt-5.6-sol",
+      "w2_cheaper": "Claude Opus 5.5",
+      "w1_costs": [
+        49.6,
+        51.3
+      ],
+      "w2_costs": [
+        4.0,
+        4.0
+      ]
+    },
+    {
+      "a": "Claude Haiku 5.5",
+      "b": "Gemini 3.1 Flash-Lite",
+      "workload_1": "RAG chat",
+      "workload_2": "long-document synthesis",
+      "w1_cheaper": "Claude Haiku 5.5",
+      "w2_cheaper": "Gemini 3.1 Flash-Lite",
+      "w1_costs": [
+        1.45,
+        3.25
+      ],
+      "w2_costs": [
+        102.5,
+        52.5
+      ]
+    },
+    {
+      "a": "gpt-6.1-sol",
+      "b": "Claude Sonnet 5.5",
+      "workload_1": "RAG chat",
+      "workload_2": "long-document synthesis",
+      "w1_cheaper": "gpt-6.1-sol",
+      "w2_cheaper": "Claude Sonnet 5.5",
+      "w1_costs": [
+        21.4,
+        25.65
+      ],
+      "w2_costs": [
+        410.0,
+        410.0
+      ]
+    },
+    {
+      "a": "Gemini 4 Argon",
+      "b": "Claude Sonnet 5.5",
+      "workload_1": "RAG chat",
+      "workload_2": "long-document synthesis",
+      "w1_cheaper": "Gemini 4 Argon",
+      "w2_cheaper": "Claude Sonnet 5.5",
+      "w1_costs": [
+        21.4,
+        25.65
+      ],
+      "w2_costs": [
+        410.0,
+        410.0
+      ]
+    },
+    {
+      "a": "gpt-5.6-sol",
+      "b": "Claude Opus 5.5",
+      "workload_1": "RAG chat",
+      "workload_2": "long-document synthesis",
+      "w1_cheaper": "gpt-5.6-sol",
+      "w2_cheaper": "Claude Opus 5.5",
+      "w1_costs": [
+        49.6,
+        51.3
+      ],
+      "w2_costs": [
+        820.0,
+        820.0
+      ]
+    },
+    {
+      "a": "Claude Haiku 5.5",
+      "b": "gpt-6-luna",
+      "workload_1": "bulk classification",
+      "workload_2": "long-document synthesis",
+      "w1_cheaper": "Claude Haiku 5.5",
+      "w2_cheaper": "gpt-6-luna",
+      "w1_costs": [
+        0.1,
+        0.1
+      ],
+      "w2_costs": [
+        102.5,
+        20.5
+      ]
+    },
+    {
+      "a": "Claude Haiku 5.5",
+      "b": "Gemini 2.5 Flash-Lite",
+      "workload_1": "bulk classification",
+      "workload_2": "long-document synthesis",
+      "w1_cheaper": "Claude Haiku 5.5",
+      "w2_cheaper": "Gemini 2.5 Flash-Lite",
+      "w1_costs": [
+        0.1,
+        0.1
+      ],
+      "w2_costs": [
+        102.5,
+        20.0
+      ]
+    },
+    {
+      "a": "Claude Haiku 5.5",
+      "b": "Gemini 3.1 Flash-Lite",
+      "workload_1": "bulk classification",
+      "workload_2": "long-document synthesis",
+      "w1_cheaper": "Claude Haiku 5.5",
+      "w2_cheaper": "Gemini 3.1 Flash-Lite",
+      "w1_costs": [
+        0.1,
+        0.26
+      ],
+      "w2_costs": [
+        102.5,
+        52.5
+      ]
+    },
+    {
+      "a": "gpt-6-luna",
+      "b": "Gemini 2.5 Flash-Lite",
+      "workload_1": "bulk classification",
+      "workload_2": "long-document synthesis",
+      "w1_cheaper": "gpt-6-luna",
+      "w2_cheaper": "Gemini 2.5 Flash-Lite",
+      "w1_costs": [
+        0.1,
+        0.1
+      ],
+      "w2_costs": [
+        20.5,
+        20.0
+      ]
+    }
+  ],
+  "identical_list_price_groups": [
+    {
+      "list_input": 10.0,
+      "list_output": 50.0,
+      "models": [
+        "Claude Fable 5.1",
+        "gpt-6-astra"
+      ],
+      "cache_read": {
+        "Claude Fable 5.1": 0.25,
+        "gpt-6-astra": 1.0
+      },
+      "agentic_cost_per_1k": {
+        "Claude Fable 5.1": 535.4,
+        "gpt-6-astra": 449.6
+      },
+      "spread": 1.19
+    },
+    {
+      "list_input": 4.0,
+      "list_output": 20.0,
+      "models": [
+        "Claude Opus 5.5",
+        "gpt-5.6-sol"
+      ],
+      "cache_read": {
+        "Claude Opus 5.5": 0.2,
+        "gpt-5.6-sol": 0.4
+      },
+      "agentic_cost_per_1k": {
+        "Claude Opus 5.5": 224.72,
+        "gpt-5.6-sol": 179.84
+      },
+      "spread": 1.25
+    },
+    {
+      "list_input": 2.0,
+      "list_output": 10.0,
+      "models": [
+        "Claude Sonnet 5.5",
+        "gpt-6.1-sol",
+        "Gemini 4 Argon"
+      ],
+      "cache_read": {
+        "Claude Sonnet 5.5": 0.1,
+        "gpt-6.1-sol": 0.1,
+        "Gemini 4 Argon": 0.1
+      },
+      "agentic_cost_per_1k": {
+        "Claude Sonnet 5.5": 112.36,
+        "gpt-6.1-sol": 79.36,
+        "Gemini 4 Argon": 79.36
+      },
+      "spread": 1.42
+    },
+    {
+      "list_input": 0.1,
+      "list_output": 0.5,
+      "models": [
+        "Claude Haiku 5.5",
+        "gpt-6-luna"
+      ],
+      "cache_read": {
+        "Claude Haiku 5.5": 0.01,
+        "gpt-6-luna": 0.01
+      },
+      "agentic_cost_per_1k": {
+        "Claude Haiku 5.5": 30.73,
+        "gpt-6-luna": 4.5
+      },
+      "spread": 6.83
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "_comment": "Published list prices, USD per million tokens, transcribed from each provider's own pricing page on the date below. There is no public pricing API for any of the three, so these are transcribed by hand and every figure is checkable against the cited URL.",
+  "retrieved": "2026-11-02",
+  "sources": {
+    "anthropic": "https://claude.com/pricing",
+    "openai": "https://developers.openai.com/api/docs/pricing",
+    "google": "https://aistudio.google.com/docs/pricing"
+  },
+  "models": [
+    {"vendor": "Anthropic", "name": "Claude Fable 5.1",    "tier": "frontier", "input": 10.00, "output": 50.00, "cache_read": 0.25,  "cache_write": 12.50},
+    {"vendor": "Anthropic", "name": "Claude Opus 5.5",     "tier": "flagship", "input": 4.00,  "output": 20.00, "cache_read": 0.20,  "cache_write": 5.00},
+    {"vendor": "Anthropic", "name": "Claude Sonnet 5.5",   "tier": "mid",      "input": 2.00,  "output": 10.00, "cache_read": 0.10,  "cache_write": 2.50},
+    {"vendor": "Anthropic", "name": "Claude Haiku 5.5",    "tier": "small",    "input": 0.10,  "output": 0.50,  "cache_read": 0.01,  "cache_write": 0.125,
+     "context_cliff": {"above_tokens": 100000, "input": 0.50, "output": 2.50, "cache_read": 0.05}},
+
+    {"vendor": "OpenAI",    "name": "gpt-6-astra",         "tier": "frontier", "input": 10.00, "output": 50.00, "cache_read": 1.00},
+    {"vendor": "OpenAI",    "name": "gpt-5.6-sol",         "tier": "flagship", "input": 4.00,  "output": 20.00, "cache_read": 0.40},
+    {"vendor": "OpenAI",    "name": "gpt-6.1-sol",         "tier": "mid",      "input": 2.00,  "output": 10.00, "cache_read": 0.10},
+    {"vendor": "OpenAI",    "name": "gpt-6.1-terra",       "tier": "mid",      "input": 1.00,  "output": 5.00,  "cache_read": 0.05},
+    {"vendor": "OpenAI",    "name": "gpt-6-luna",          "tier": "small",    "input": 0.10,  "output": 0.50,  "cache_read": 0.01},
+
+    {"vendor": "Google",    "name": "Gemini 4 Argon",      "tier": "mid",      "input": 2.00,  "output": 10.00, "cache_read": 0.10,
+     "scheduled_change": {"date": "2026-12-01", "input": 4.00, "output": 20.00, "cache_read": 0.20}},
+    {"vendor": "Google",    "name": "Gemini 3.8 Flash",    "tier": "mid",      "input": 0.75,  "output": 3.75,  "cache_read": 0.075,
+     "scheduled_change": {"date": "2027-01-01", "input": 1.50, "output": 7.50, "cache_read": 0.15}},
+    {"vendor": "Google",    "name": "Gemini 3.1 Flash-Lite","tier": "small",   "input": 0.25,  "output": 1.50,  "cache_read": 0.025},
+    {"vendor": "Google",    "name": "Gemini 2.5 Flash-Lite","tier": "small",   "input": 0.10,  "output": 0.40,  "cache_read": 0.01}
+  ],
+  "batch_discount": {"Anthropic": 0.50, "_note": "OpenAI and Google batch rates are published separately and are not modelled here."}
+}
