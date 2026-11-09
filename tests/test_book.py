@@ -80,6 +80,91 @@ def test_no_published_cache_rate_bills_at_full_input(book):
     assert cost == pytest.approx(10.0)
 
 
+def _banded_book(tmp_path) -> PriceBook:
+    """Anthropic's Haiku 5.5 shape: 0.10/0.50 up to 100k tokens, then the
+    whole request rebills at 0.50/2.50."""
+    base = Price(
+        input=0.1, output=0.5, cache_read=0.01, cache_write=0.125,
+        long_context_above=100_000,
+        long_context=Price(input=0.5, output=2.5, cache_read=0.05, cache_write=0.625),
+    )
+    b = PriceBook(
+        updated_at='2026-11-09',
+        models={'haiku': ModelEntry(id='haiku', vendor='anthropic', tiers={STANDARD: base})},
+    )
+    path = tmp_path / 'banded.json'
+    save_book(b, path)
+    return load_book(path)
+
+
+def test_a_prompt_at_the_threshold_still_bills_the_cheap_band(tmp_path):
+    """The vendors all phrase it 'over N', so N itself is inside the cheap
+    band. One token is the whole price jump."""
+    b = _banded_book(tmp_path)
+    assert estimate_cost('haiku', 100_000, 0, book=b) == pytest.approx(0.01)
+    assert estimate_cost('haiku', 100_001, 0, book=b) == pytest.approx(
+        100_001 / 1_000_000 * 0.5
+    )
+
+
+def test_crossing_the_threshold_rebills_the_whole_request(tmp_path):
+    """Not just the tokens above the line: every rate moves, so the 100k below
+    it is repriced too."""
+    b = _banded_book(tmp_path)
+    cost = estimate_cost('haiku', 200_000, 10_000, book=b)
+    assert cost == pytest.approx(0.2 * 0.5 + 0.01 * 2.5)
+
+
+def test_a_band_must_state_its_threshold():
+    with pytest.raises(ValidationError):
+        Price(input=1.0, output=2.0, long_context=Price(input=2.0, output=4.0))
+
+
+def test_a_row_may_not_carry_both_a_band_and_a_peak():
+    """Two selectors on one row have no defined resolution order."""
+    with pytest.raises(ValidationError):
+        Price(
+            input=1.0, output=2.0,
+            long_context_above=100_000,
+            long_context=Price(input=2.0, output=4.0),
+            peak=Price(input=3.0, output=6.0),
+        )
+
+
+def test_a_band_may_not_nest_a_band():
+    inner = Price(
+        input=3.0, output=6.0,
+        long_context_above=200_000,
+        long_context=Price(input=4.0, output=8.0),
+    )
+    with pytest.raises(ValidationError):
+        Price(input=1.0, output=2.0, long_context_above=100_000, long_context=inner)
+
+
+def test_observed_prices_leave_announcements_out():
+    """Backwards analysis must not borrow an unarrived future surcharge."""
+    entry = ModelEntry(
+        id='m',
+        vendor='v',
+        tiers={
+            STANDARD: Price(
+                input=2.0,
+                output=10.0,
+                effective_from='2026-10-16',
+                scheduled=[Price(input=4.0, output=20.0, effective_from='2026-12-01')],
+            )
+        },
+        history={STANDARD: [Price(input=1.0, output=5.0, effective_from='2026-01-01')]},
+    )
+    assert [p.effective_from for p in entry.observed_prices()] == [
+        '2026-01-01',
+        '2026-10-16',
+    ]
+    assert [p.input for p in entry.announced_prices()] == [4.0]
+    # The dated selector still merges them; that is how a future date is priced.
+    assert [p.input for p in entry.rate_history()] == [1.0, 2.0, 4.0]
+
+
 def test_negative_fresh_input_is_clamped(book):
     """A malformed usage row must not produce a negative cost."""
     cost = estimate_cost('cheap', 100, 0, cache_read_tokens=1_000_000, book=book)

@@ -40,7 +40,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BOOK_REL = 'src/llm_price_tracker/data/prices.json'
 BOOK = ROOT / BOOK_REL
-RATE_FIELDS = ('input', 'output', 'cache_read', 'cache_write', 'peak', 'peak_windows')
+# The identity of a rate: everything that makes two rows different rates.
+# `long_context`/`long_context_above` are here for the same reason `peak` is —
+# a hardcoded tuple would have called a banded row and its bandless predecessor
+# the same rate, so the band would have been folded away by the first backfill.
+RATE_FIELDS = (
+    'input', 'output', 'cache_read', 'cache_write', 'peak', 'peak_windows',
+    'long_context', 'long_context_above',
+)
 
 
 def git(*args: str) -> str:

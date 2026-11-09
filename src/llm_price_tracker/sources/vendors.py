@@ -36,6 +36,15 @@ class AnthropicSource(Source):
     _NAME = re.compile(r'^claude\s+([a-z0-9.\s]+?)\s*(?:\[|\(|$)', re.IGNORECASE)
     # "Claude Sonnet 5 starting September 1, 2026" -> 'September 1, 2026'.
     _STARTING = re.compile(r'\s+starting\s+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})')
+    # The prompt-size band is published as a SECOND ROW for the same model:
+    # 'Claude Haiku 5.5 (for prompts up to 100,000 tokens)' and '... (for
+    # prompts over 100,000 tokens)'. Both name the same model and both carry
+    # the full five rate columns; the second is the surcharge, and its
+    # parenthetical is the only thing distinguishing it from a rate change.
+    _BAND = re.compile(
+        r'\(\s*(?:for\s+)?prompts\s+(up to|over)\s+([\d,]+)\s+tokens?\s*\)',
+        re.IGNORECASE,
+    )
 
     def parse_usage_prices(self, body):
         from .usage import anthropic_usage_prices
@@ -45,6 +54,8 @@ class AnthropicSource(Source):
     def parse(self, body: str) -> dict[str, Price]:
         out: dict[str, Price] = {}
         future: dict[str, list[Price]] = {}
+        # slug -> (last short-band token count, the surcharge row above it)
+        bands: dict[str, tuple[int, Price]] = {}
         for line in body.splitlines():
             s = line.strip()
             if not s.startswith('|') or 'claude' not in s.lower():
@@ -62,6 +73,9 @@ class AnthropicSource(Source):
             # exactly that when it made Sonnet 5's intro rate permanent) would
             # leave a phantom price in the book forever.
             name_cell = cells[0]
+            band = self._BAND.search(name_cell)
+            if band is not None:
+                name_cell = name_cell[: band.start()]
             start = self._STARTING.search(name_cell)
             if start is not None:
                 name_cell = name_cell[: start.start()]
@@ -80,6 +94,19 @@ class AnthropicSource(Source):
                 cache_read=rates[3],
                 cache_write=rates[1],
             )
+            if band is not None and start is None:
+                # 'up to N' names the row the scalar fields already hold, so it
+                # needs nothing. 'over N' is the surcharge; it is attached to
+                # the base row after the loop, because the two rows can arrive
+                # in either order. An ANNOUNCED band row (a start date on a
+                # surcharge) is skipped rather than mis-filed as the current
+                # band: no vendor publishes one today, and guessing would put a
+                # future price in force now.
+                if band.group(1).lower() == 'over':
+                    bands.setdefault(
+                        slug, (int(band.group(2).replace(',', '')), price)
+                    )
+                    continue
             if start is not None:
                 when = _iso_date(start.group(1) or '')
                 if when is not None:
@@ -88,6 +115,15 @@ class AnthropicSource(Source):
                     )
                 continue
             out.setdefault(slug, price)
+        for slug, (limit, surcharge) in bands.items():
+            current = out.get(slug)
+            if current is not None:
+                out[slug] = current.model_copy(
+                    update={
+                        'long_context_above': limit,
+                        'long_context': surcharge,
+                    }
+                )
         for slug, rows in future.items():
             current = out.get(slug)
             if current is not None:
@@ -120,6 +156,15 @@ class OpenAISource(Source):
     `cache writes` column sits between cached-input and output, so anything
     that pins output to a fixed index reads cache-writes as the output price.
     Columns are located by name here.
+
+    Cache writes are published per TTL — `30m write` and `12h write`, then both
+    again inside the long-context block. The book records ONE write rate per
+    row and it is the SHORTEST published TTL (30m here, 5m on Anthropic), so
+    the 30m cell is the one read; 12h is a longer-lived cache at a different
+    rate and folding it in would record a price nobody is charged for the
+    default case. The single `cache writes` column this replaced carried that
+    same rate, and the fallback stays because the renderer may serve either
+    shape.
 
     The image models are NOT in that table. They live in their own section
     under a `### Grouped Pricing Table data` heading that the page reuses for a
@@ -201,9 +246,25 @@ class OpenAISource(Source):
         c_in = col('short context', 'input') or col('input')
         c_out = col('short context', 'output') or col('output')
         c_cached = col('short context', 'cached')
-        c_write = col('short context', 'cache writes')
+        # Shortest published TTL — see the class docstring. The older
+        # single-column header names the same rate and is still accepted.
+        c_write = col('short context', '30m write')
+        if c_write is None:
+            c_write = col('short context', 'cache writes')
         if c_in is None or c_out is None:
             return {}
+
+        def cell(row: list[str], i: int | None) -> str:
+            """One cell, or '' when the row is shorter than the header.
+
+            The standard section carries a second, legacy four-column table
+            (`Model | Input | Output | Cached input`) after a blank line, and a
+            blank line does not terminate the table here. Those rows are parsed
+            against the eleven-column header, so every index past 3 is out of
+            range and an unguarded read of the write column raises instead of
+            yielding None.
+            """
+            return row[i] if i is not None and i < len(row) else ''
 
         out: dict[str, Price] = {}
         for r in rows[1:]:
@@ -218,8 +279,8 @@ class OpenAISource(Source):
                 Price(
                     input=inp,
                     output=outp,
-                    cache_read=dollars(r[c_cached]) if c_cached is not None else None,
-                    cache_write=dollars(r[c_write]) if c_write is not None else None,
+                    cache_read=dollars(cell(r, c_cached)),
+                    cache_write=dollars(cell(r, c_write)),
                 ),
             )
         return out

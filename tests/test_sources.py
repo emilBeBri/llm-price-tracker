@@ -152,6 +152,51 @@ def test_openai_image_renamed_column_yields_no_rows():
     assert not [m for m in OpenAISource().parse(renamed) if 'image' in m]
 
 
+# The header that shipped when OpenAI split cache writes by TTL. Both a 30m and
+# a 12h column are published, in the short-context block and again in the long.
+OPENAI_MD_TTL = """# Pricing
+
+### Standard pricing data
+
+| Model | Short context input | Short context output | Short context cached input | Short context 30m write | Short context 12h write | Long context input | Long context output | Long context cached input | Long context 30m write | Long context 12h write |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gpt-6-luna | $0.10 | $0.50 | $0.01 | $0.125 | $0.25 | $0.20 | $0.75 | $0.02 | $0.25 | $0.50 |
+| gpt-5.5 (<272K context length) | $5.00 | $30.00 | $0.50 | - | - | $10.00 | $45.00 | $1.00 | - | - |
+
+| Model | Input | Output | Cached input |
+| --- | --- | --- | --- |
+| gpt-4o | $2.50 | $10.00 | $1.25 |
+"""
+
+
+def test_openai_cache_write_is_the_short_ttl_column():
+    """30m is the write rate an ordinary request incurs; 12h is not recorded."""
+    luna = OpenAISource().parse(OPENAI_MD_TTL)['gpt-6-luna']
+    assert luna.cache_write == 0.125, 'the 30m cell, not the 12h or long-context one'
+    assert (luna.input, luna.output, luna.cache_read) == (0.10, 0.50, 0.01)
+
+
+def test_openai_without_a_published_write_rate_records_none_not_zero():
+    """A '-' cell means the vendor publishes no such rate, not a free one."""
+    assert OpenAISource().parse(OPENAI_MD_TTL)['gpt-5.5'].cache_write is None
+
+
+def test_openai_legacy_four_column_rows_after_a_blank_line_are_read():
+    """The older families sit in a second, narrower table in the SAME section.
+
+    A blank line does not end the table, so those rows are parsed against the
+    eleven-column header; reading the write column unguarded used to raise.
+    """
+    o4o = OpenAISource().parse(OPENAI_MD_TTL)['gpt-4o']
+    assert (o4o.input, o4o.output, o4o.cache_read) == (2.5, 10.0, 1.25)
+    assert o4o.cache_write is None
+
+
+def test_openai_single_cache_writes_column_still_parses():
+    """The pre-TTL header names the same rate; the fallback keeps it readable."""
+    assert OpenAISource().parse(OPENAI_MD)['gpt-5.6-luna'].cache_write == 0.25
+
+
 # --------------------------------------------------------------------------- #
 # Anthropic: a model with a dated introductory rate appears TWICE.
 # --------------------------------------------------------------------------- #
@@ -186,6 +231,50 @@ def test_anthropic_maps_the_cache_columns():
     opus = AnthropicSource().parse(ANTHROPIC_MD)['claude-opus-5']
     assert (opus.input, opus.output) == (5.0, 25.0)
     assert opus.cache_read == 0.50 and opus.cache_write == 6.25
+
+
+# The prompt-size band. The vendor publishes the SAME model twice and only the
+# parenthetical says which row is the surcharge; both rows carry all five rate
+# columns, so a parser that ignores the parenthesis records whichever comes
+# first and drops the other.
+ANTHROPIC_MD_BAND = """
+| Model | Base Input Tokens | 5m Cache Writes | 1h Cache Writes | Cache Hits | Output Tokens |
+| --- | --- | --- | --- | --- | --- |
+| Claude Haiku 5.5 (for prompts up to 100,000 tokens) | $0.10 / MTok | $0.125 / MTok | $0.20 / MTok | $0.01 / MTok | $0.50 / MTok |
+| Claude Haiku 5.5 (for prompts over 100,000 tokens) | $0.50 / MTok | $0.625 / MTok | $1 / MTok | $0.05 / MTok | $2.50 / MTok |
+| Claude Haiku 4.5 | $1 / MTok | $1.25 / MTok | $2 / MTok | $0.10 / MTok | $5 / MTok |
+"""
+
+
+def test_anthropic_records_the_prompt_size_surcharge_on_the_base_row():
+    haiku = AnthropicSource().parse(ANTHROPIC_MD_BAND)['claude-haiku-5.5']
+    assert (haiku.input, haiku.output) == (0.10, 0.50)
+    assert (haiku.cache_read, haiku.cache_write) == (0.01, 0.125)
+    assert haiku.long_context_above == 100_000, 'the last CHEAP token count'
+    band = haiku.long_context
+    assert (band.input, band.output) == (0.50, 2.50)
+    assert (band.cache_read, band.cache_write) == (0.05, 0.625)
+
+
+def test_anthropic_band_does_not_depend_on_row_order():
+    swapped = ANTHROPIC_MD_BAND.replace(
+        '| Claude Haiku 5.5 (for prompts up to 100,000 tokens) | $0.10 / MTok '
+        '| $0.125 / MTok | $0.20 / MTok | $0.01 / MTok | $0.50 / MTok |\n'
+        '| Claude Haiku 5.5 (for prompts over 100,000 tokens) | $0.50 / MTok '
+        '| $0.625 / MTok | $1 / MTok | $0.05 / MTok | $2.50 / MTok |',
+        '| Claude Haiku 5.5 (for prompts over 100,000 tokens) | $0.50 / MTok '
+        '| $0.625 / MTok | $1 / MTok | $0.05 / MTok | $2.50 / MTok |\n'
+        '| Claude Haiku 5.5 (for prompts up to 100,000 tokens) | $0.10 / MTok '
+        '| $0.125 / MTok | $0.20 / MTok | $0.01 / MTok | $0.50 / MTok |',
+    )
+    assert swapped != ANTHROPIC_MD_BAND
+    haiku = AnthropicSource().parse(swapped)['claude-haiku-5.5']
+    assert (haiku.input, haiku.output) == (0.10, 0.50)
+    assert haiku.long_context.input == 0.50
+
+
+def test_anthropic_flat_priced_model_has_no_band():
+    assert AnthropicSource().parse(ANTHROPIC_MD_BAND)['claude-haiku-4.5'].long_context is None
 
 
 # --------------------------------------------------------------------------- #

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # The tier every entry must carry. Vendors publish several live rates for the
 # same model at once — OpenAI standard/batch/priority, xAI and Gemini <200k vs
@@ -140,6 +140,52 @@ class Price(BaseModel):
     # every refresh instead of carrying them forward: a withdrawn announcement
     # has to disappear, and a sticky one would predict a phantom price forever.
     scheduled: list[Price] | None = None
+    # The vendor's higher rate for a LARGE PROMPT — published as a second row
+    # ("up to 100,000 tokens" / "over 100,000 tokens") or as a long-context
+    # block inside one row. It is nested under the rate it qualifies rather
+    # than added as another `tiers` key on purpose: `tiers` is the SERVICE-TIER
+    # axis (standard/batch/flex, chosen by the caller's billing mode), while
+    # this is selected by the prompt size. Two axes, two selectors; folding
+    # them into one dict would lose which base row the band modifies.
+    #
+    # Once the prompt crosses the threshold every rate moves — the vendor
+    # rebills the whole request, not the increment above the line. Recorded as
+    # published, with `None` meaning "the vendor publishes no such rate in this
+    # band" exactly as it does on the parent.
+    long_context: Price | None = None
+    # The LAST token count in the cheaper band: the band applies to prompts
+    # STRICTLY LONGER than this. Every vendor that publishes one phrases it
+    # that way ("over 100,000", "> 272K"), and 100,000 vs 100,001 at the
+    # boundary is a real price jump. A consumer whose own field is inclusive
+    # must add one to map it — exact, since token counts are integers — rather
+    # than change a comparison it may share with rows that publish no band.
+    long_context_above: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode='after')
+    def _one_selector_per_row(self) -> Price:
+        """Refuse the shapes that would need a resolution order nobody asked for.
+
+        A band and a time-of-day peak are two independent selectors; a row that
+        carried both would need "which applies first" answered by every reader,
+        and no vendor currently publishes that combination. A band inside a
+        band is the same problem one level down. Announcements stay legal on a
+        banded row (a vendor announcing a surcharge is a fact worth keeping),
+        but a nested row may not carry announcements of its own, which is what
+        keeps the diff and the sanity gate finite.
+        """
+        band = self.long_context
+        if band is not None:
+            if self.long_context_above is None:
+                raise ValueError('long_context requires long_context_above')
+            if self.peak is not None:
+                raise ValueError('a row may not carry both a band and a peak')
+            if band.long_context is not None or band.peak is not None:
+                raise ValueError('a long-context band may not nest a band or a peak')
+            if band.scheduled:
+                raise ValueError('a long-context band may not carry announcements')
+        if self.peak is not None and self.peak.long_context is not None:
+            raise ValueError('a peak variant may not carry a long-context band')
+        return self
 
     def for_time(self, at: datetime) -> Price:
         """The scalar rate in force at `at` (UTC): the peak variant if `at`
@@ -198,6 +244,34 @@ class ModelEntry(BaseModel):
             rows.extend(current.scheduled or [])
             rows.append(current)
         return sorted(rows, key=lambda p: p.effective_from or '')
+
+    def observed_prices(self, tier: str = STANDARD) -> list[Price]:
+        """Every row this book has actually OBSERVED for `tier`, oldest first:
+        the superseded history plus the current row.
+
+        `rate_history` also returns rates the vendor has merely ANNOUNCED
+        (`Price.scheduled`), which is right for pricing a future date and wrong
+        for reasoning about the past — an unarrived surcharge is not evidence
+        about a call made last month. History analysis uses this list; pricing
+        a specific moment uses `price_at`/`rate_history`.
+        """
+        rows = [*self.history.get(tier, [])]
+        current = self.tiers.get(tier)
+        if current is not None:
+            rows.append(current)
+        return sorted(rows, key=lambda p: p.effective_from or '')
+
+    def announced_prices(self, tier: str = STANDARD) -> list[Price]:
+        """Rates the vendor has published as starting on a LATER date.
+
+        Taken from the current row only: announcements are recomputed from the
+        vendor page on every refresh rather than carried forward, so a
+        withdrawn one disappears instead of predicting a price forever.
+        """
+        current = self.tiers.get(tier)
+        if current is None:
+            return []
+        return sorted(current.scheduled or [], key=lambda p: p.effective_from or '')
 
     def price_at(self, at: datetime | None = None, tier: str = STANDARD) -> Price | None:
         """The rate in force for `tier` on the date of `at`.

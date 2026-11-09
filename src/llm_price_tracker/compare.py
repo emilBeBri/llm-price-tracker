@@ -129,6 +129,16 @@ def _same(a: Price, b: Price) -> bool:
         for f in ('input', 'output', 'cache_read', 'cache_write')
     ):
         return False
+    # The prompt-size band is a rate fact like any other, so it takes part in
+    # the history-push test: a band that appears, moves its threshold or is
+    # withdrawn has to archive the outgoing row, and without this the whole
+    # feature would be recorded and simultaneously invisible to the diff.
+    if (a.long_context is None) != (b.long_context is None):
+        return False
+    if (a.long_context_above or 0) != (b.long_context_above or 0):
+        return False
+    if a.long_context is not None and not _same(a.long_context, b.long_context):
+        return False
     if (a.peak is None) != (b.peak is None):
         return False
     if a.peak is None:

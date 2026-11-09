@@ -41,24 +41,30 @@ def load_book(path: Path | None = None, *, refresh: bool = False) -> PriceBook:
     return _CACHE
 
 
+def _walk_prices(price: Price, prefix: str = ''):
+    """Every Price reachable from `price`, with the path that reached it.
+
+    Recursive on purpose. An enumerated list of the nested locations was the
+    first draft and it was already incomplete: it covered `peak` and
+    `scheduled` and would have missed `long_context` — and the next field added
+    to `Price` would need someone to remember this function exists. A nested
+    row is read from the same cells as its parent and stored the same way, so a
+    '$4.00 per 1K tokens' promo lands as 0.004 or as 4,000,000 there too.
+    """
+    yield prefix, price
+    if price.peak is not None:
+        yield from _walk_prices(price.peak, f'{prefix}.peak')
+    if price.long_context is not None:
+        yield from _walk_prices(price.long_context, f'{prefix}.long_context')
+    for i, future in enumerate(price.scheduled or []):
+        yield from _walk_prices(future, f'{prefix}.scheduled[{i}]')
+
+
 def _implausible_rates(book: PriceBook) -> list[str]:
     bad: list[str] = []
     for model_id, entry in book.models.items():
         for tier, price in entry.tiers.items():
-            # Every nested Price trips the gate, not just the tier's own rates:
-            # the peak variant and every announced future row too, or the
-            # factor-1e6 error walks in through a side door. A future row is
-            # read from the same cell as the current one and stored the same
-            # way — a '$4.00 per 1K tokens' promo would land as 0.004 or as
-            # 4,000,000, and only one of those is caught by not looking.
-            variants = [('', price)]
-            if price.peak is not None:
-                variants.append(('.peak', price.peak))
-            variants += [
-                (f'.scheduled[{i}]', future)
-                for i, future in enumerate(price.scheduled or [])
-            ]
-            for suffix, variant in variants:
+            for suffix, variant in _walk_prices(price):
                 for rate_field in ('input', 'output', 'cache_read', 'cache_write'):
                     value = getattr(variant, rate_field)
                     if value is not None and value > MAX_SANE_MTOK:
@@ -202,6 +208,16 @@ def estimate_cost(
     price = get_price(model_id, tier, book, at=at)
     if price is None:
         return None
+    if (
+        price.long_context is not None
+        and price.long_context_above is not None
+        and input_tokens > price.long_context_above
+    ):
+        # The vendor rebills the WHOLE request at the higher band once the
+        # prompt crosses the line, so every rate moves, not just the increment
+        # above it. Selected here rather than in `get_price`, which has no
+        # token count and must keep answering with the calendar row.
+        price = price.long_context
 
     read_rate = price.cache_read if price.cache_read is not None else price.input
     write_rate = price.cache_write if price.cache_write is not None else price.input

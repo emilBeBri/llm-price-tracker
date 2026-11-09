@@ -1,18 +1,41 @@
 {
-  "updated_at": "2026-11-01",
+  "updated_at": "2026-11-09",
   "models": {
     "apertus-70b": {
       "id": "apertus-70b",
       "vendor": "regolo",
       "tiers": {
         "standard": {
-          "input": 0.44,
-          "output": 2.31,
-          "effective_from": "2026-11-01"
+          "input": 1.1,
+          "output": 3.74,
+          "effective_from": "2026-11-09"
         }
       },
       "sources": [
         "regolo"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 0.44,
+            "output": 2.31,
+            "effective_from": "2026-11-01"
+          }
+        ]
+      }
+    },
+    "babbage-002": {
+      "id": "babbage-002",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 0.4,
+          "output": 0.4,
+          "effective_from": "2026-08-01"
+        }
+      },
+      "sources": [
+        "openai"
       ]
     },
     "brick-complexity-pro": {
@@ -34,228 +57,23 @@
       "vendor": "regolo",
       "tiers": {
         "standard": {
-          "input": 0.0,
-          "output": 0.0,
-          "effective_from": "2026-11-01"
-        }
-      },
-      "sources": [
-        "regolo"
-      ]
-    },
-    "gemma4-31b": {
-      "id": "gemma4-31b",
-      "vendor": "regolo",
-      "tiers": {
-        "standard": {
-          "input": 0.44,
-          "output": 2.31,
-          "effective_from": "2026-11-01"
-        }
-      },
-      "sources": [
-        "regolo"
-      ]
-    },
-    "glm5.2": {
-      "id": "glm5.2",
-      "vendor": "regolo",
-      "tiers": {
-        "standard": {
-          "input": 2.2,
-          "output": 5.72,
-          "effective_from": "2026-11-01"
-        }
-      },
-      "sources": [
-        "regolo"
-      ]
-    },
-    "gpt-oss-120b": {
-      "id": "gpt-oss-120b",
-      "vendor": "regolo",
-      "tiers": {
-        "standard": {
-          "input": 1.1,
-          "output": 4.62,
-          "effective_from": "2026-11-01"
-        }
-      },
-      "sources": [
-        "openrouter",
-        "regolo"
-      ]
-    },
-    "gpt-oss-20b": {
-      "id": "gpt-oss-20b",
-      "vendor": "regolo",
-      "tiers": {
-        "standard": {
           "input": 0.11,
-          "output": 0.462,
-          "effective_from": "2026-11-01"
-        }
-      },
-      "sources": [
-        "openrouter",
-        "regolo"
-      ]
-    },
-    "meta-llama/llama-prompt-guard-2-22m": {
-      "id": "meta-llama/llama-prompt-guard-2-22m",
-      "vendor": "groq",
-      "tiers": {
-        "standard": {
-          "input": 0.03,
-          "output": 0.03,
-          "effective_from": "2026-11-01"
-        }
-      },
-      "sources": [
-        "groq"
-      ]
-    },
-    "meta-llama/llama-prompt-guard-2-86m": {
-      "id": "meta-llama/llama-prompt-guard-2-86m",
-      "vendor": "groq",
-      "tiers": {
-        "standard": {
-          "input": 0.04,
-          "output": 0.04,
-          "effective_from": "2026-11-01"
-        }
-      },
-      "sources": [
-        "groq"
-      ]
-    },
-    "mistral-small-4-119b": {
-      "id": "mistral-small-4-119b",
-      "vendor": "regolo",
-      "tiers": {
-        "standard": {
-          "input": 0.55,
-          "output": 2.31,
-          "effective_from": "2026-11-01"
+          "output": 0.22,
+          "effective_from": "2026-11-09"
         }
       },
       "sources": [
         "regolo"
-      ]
-    },
-    "openai/gpt-oss-120b": {
-      "id": "openai/gpt-oss-120b",
-      "vendor": "groq",
-      "tiers": {
-        "standard": {
-          "input": 0.15,
-          "output": 0.6,
-          "effective_from": "2026-11-01"
-        }
-      },
-      "sources": [
-        "groq"
-      ]
-    },
-    "openai/gpt-oss-20b": {
-      "id": "openai/gpt-oss-20b",
-      "vendor": "groq",
-      "tiers": {
-        "standard": {
-          "input": 0.075,
-          "output": 0.3,
-          "effective_from": "2026-11-01"
-        }
-      },
-      "sources": [
-        "groq"
-      ]
-    },
-    "openai/gpt-oss-safeguard-20b": {
-      "id": "openai/gpt-oss-safeguard-20b",
-      "vendor": "groq",
-      "tiers": {
-        "standard": {
-          "input": 0.075,
-          "output": 0.3,
-          "effective_from": "2026-11-01"
-        }
-      },
-      "sources": [
-        "groq"
-      ]
-    },
-    "qwen/qwen3.8-27b": {
-      "id": "qwen/qwen3.8-27b",
-      "vendor": "groq",
-      "tiers": {
-        "standard": {
-          "input": 0.8,
-          "output": 4.0,
-          "effective_from": "2026-11-01"
-        }
-      },
-      "sources": [
-        "groq"
-      ]
-    },
-    "qwen3.5-122b": {
-      "id": "qwen3.5-122b",
-      "vendor": "regolo",
-      "tiers": {
-        "standard": {
-          "input": 1.1,
-          "output": 4.62,
-          "effective_from": "2026-11-01"
-        }
-      },
-      "sources": [
-        "regolo"
-      ]
-    },
-    "qwen3.5-9b": {
-      "id": "qwen3.5-9b",
-      "vendor": "regolo",
-      "tiers": {
-        "standard": {
-          "input": 0.077,
-          "output": 0.385,
-          "effective_from": "2026-11-01"
-        }
-      },
-      "sources": [
-        "openrouter",
-        "regolo"
-      ]
-    },
-    "qwen3.8-27b": {
-      "id": "qwen3.8-27b",
-      "vendor": "regolo",
-      "tiers": {
-        "standard": {
-          "input": 0.55,
-          "output": 2.31,
-          "effective_from": "2026-11-01"
-        }
-      },
-      "sources": [
-        "openrouter",
-        "regolo"
-      ]
-    },
-    "babbage-002": {
-      "id": "babbage-002",
-      "vendor": "openai",
-      "tiers": {
-        "standard": {
-          "input": 0.4,
-          "output": 0.4,
-          "effective_from": "2026-08-01"
-        }
-      },
-      "sources": [
-        "openai"
-      ]
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 0.0,
+            "output": 0.0,
+            "effective_from": "2026-11-01"
+          }
+        ]
+      }
     },
     "chatgpt-image-latest": {
       "id": "chatgpt-image-latest",
@@ -348,14 +166,32 @@
           "output": 0.5,
           "cache_read": 0.01,
           "cache_write": 0.125,
-          "effective_from": "2026-10-16"
+          "effective_from": "2026-11-09",
+          "long_context": {
+            "input": 0.5,
+            "output": 2.5,
+            "cache_read": 0.05,
+            "cache_write": 0.625
+          },
+          "long_context_above": 100000
         }
       },
       "sources": [
         "anthropic",
         "llm-prices.com",
         "openrouter"
-      ]
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 0.1,
+            "output": 0.5,
+            "cache_read": 0.01,
+            "cache_write": 0.125,
+            "effective_from": "2026-10-16"
+          }
+        ]
+      }
     },
     "claude-mythos-5": {
       "id": "claude-mythos-5",
@@ -1569,6 +1405,29 @@
         ]
       }
     },
+    "gemma4-31b": {
+      "id": "gemma4-31b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.44,
+          "output": 0.66,
+          "effective_from": "2026-11-09"
+        }
+      },
+      "sources": [
+        "regolo"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 0.44,
+            "output": 2.31,
+            "effective_from": "2026-11-01"
+          }
+        ]
+      }
+    },
     "glm-4-32b-0414-128k": {
       "id": "glm-4-32b-0414-128k",
       "vendor": "zai",
@@ -1890,6 +1749,29 @@
       "sources": [
         "zai"
       ]
+    },
+    "glm5.2": {
+      "id": "glm5.2",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 2.53,
+          "output": 7.59,
+          "effective_from": "2026-11-09"
+        }
+      },
+      "sources": [
+        "regolo"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 2.2,
+            "output": 5.72,
+            "effective_from": "2026-11-01"
+          }
+        ]
+      }
     },
     "gpt-3.5-turbo": {
       "id": "gpt-3.5-turbo",
@@ -2281,7 +2163,8 @@
           "input": 0.2,
           "output": 1.2,
           "cache_read": 0.02,
-          "effective_from": "2026-10-31"
+          "cache_write": 0.25,
+          "effective_from": "2026-11-09"
         }
       },
       "sources": [
@@ -2297,6 +2180,12 @@
             "cache_read": 0.02,
             "cache_write": 0.25,
             "effective_from": "2026-08-01"
+          },
+          {
+            "input": 0.2,
+            "output": 1.2,
+            "cache_read": 0.02,
+            "effective_from": "2026-10-31"
           }
         ]
       }
@@ -2309,7 +2198,8 @@
           "input": 4.0,
           "output": 20.0,
           "cache_read": 0.4,
-          "effective_from": "2026-10-31"
+          "cache_write": 5.0,
+          "effective_from": "2026-11-09"
         }
       },
       "sources": [
@@ -2332,6 +2222,12 @@
             "cache_read": 0.4,
             "cache_write": 5.0,
             "effective_from": "2026-09-02"
+          },
+          {
+            "input": 4.0,
+            "output": 20.0,
+            "cache_read": 0.4,
+            "effective_from": "2026-10-31"
           }
         ]
       }
@@ -2344,7 +2240,8 @@
           "input": 2.0,
           "output": 12.0,
           "cache_read": 0.2,
-          "effective_from": "2026-10-31"
+          "cache_write": 2.5,
+          "effective_from": "2026-11-09"
         }
       },
       "sources": [
@@ -2360,6 +2257,12 @@
             "cache_read": 0.2,
             "cache_write": 2.5,
             "effective_from": "2026-08-01"
+          },
+          {
+            "input": 2.0,
+            "output": 12.0,
+            "cache_read": 0.2,
+            "effective_from": "2026-10-31"
           }
         ]
       }
@@ -2372,7 +2275,8 @@
           "input": 10.0,
           "output": 50.0,
           "cache_read": 1.0,
-          "effective_from": "2026-10-31"
+          "cache_write": 12.5,
+          "effective_from": "2026-11-09"
         }
       },
       "sources": [
@@ -2388,6 +2292,12 @@
             "cache_read": 1.0,
             "cache_write": 12.5,
             "effective_from": "2026-09-04"
+          },
+          {
+            "input": 10.0,
+            "output": 50.0,
+            "cache_read": 1.0,
+            "effective_from": "2026-10-31"
           }
         ]
       }
@@ -2400,7 +2310,8 @@
           "input": 0.1,
           "output": 0.5,
           "cache_read": 0.01,
-          "effective_from": "2026-10-31"
+          "cache_write": 0.125,
+          "effective_from": "2026-11-09"
         }
       },
       "sources": [
@@ -2416,6 +2327,12 @@
             "cache_read": 0.01,
             "cache_write": 0.125,
             "effective_from": "2026-09-26"
+          },
+          {
+            "input": 0.1,
+            "output": 0.5,
+            "cache_read": 0.01,
+            "effective_from": "2026-10-31"
           }
         ]
       }
@@ -2428,7 +2345,8 @@
           "input": 2.0,
           "output": 10.0,
           "cache_read": 0.2,
-          "effective_from": "2026-10-31"
+          "cache_write": 2.5,
+          "effective_from": "2026-11-09"
         }
       },
       "sources": [
@@ -2444,6 +2362,12 @@
             "cache_read": 0.2,
             "cache_write": 2.5,
             "effective_from": "2026-09-26"
+          },
+          {
+            "input": 2.0,
+            "output": 10.0,
+            "cache_read": 0.2,
+            "effective_from": "2026-10-31"
           }
         ]
       }
@@ -2456,7 +2380,8 @@
           "input": 2.0,
           "output": 10.0,
           "cache_read": 0.1,
-          "effective_from": "2026-10-31"
+          "cache_write": 2.5,
+          "effective_from": "2026-11-09"
         }
       },
       "sources": [
@@ -2472,6 +2397,12 @@
             "cache_read": 0.1,
             "cache_write": 2.5,
             "effective_from": "2026-10-16"
+          },
+          {
+            "input": 2.0,
+            "output": 10.0,
+            "cache_read": 0.1,
+            "effective_from": "2026-10-31"
           }
         ]
       }
@@ -2484,14 +2415,25 @@
           "input": 1.0,
           "output": 5.0,
           "cache_read": 0.05,
-          "effective_from": "2026-10-31"
+          "cache_write": 1.25,
+          "effective_from": "2026-11-09"
         }
       },
       "sources": [
         "llm-prices.com",
         "openai",
         "openrouter"
-      ]
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 1.0,
+            "output": 5.0,
+            "cache_read": 0.05,
+            "effective_from": "2026-10-31"
+          }
+        ]
+      }
     },
     "gpt-image-1": {
       "id": "gpt-image-1",
@@ -2590,6 +2532,84 @@
         "openai"
       ],
       "note": "Image-modality rate, as published. Text input on the same model is $5.00/1M ($1.25 cached); it emits no text output."
+    },
+    "gpt-image-2.6-flare": {
+      "id": "gpt-image-2.6-flare",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 8.0,
+          "output": 30.0,
+          "cache_read": 2.0,
+          "effective_from": "2026-11-09"
+        }
+      },
+      "sources": [
+        "openai"
+      ]
+    },
+    "gpt-image-2.6-sunburst": {
+      "id": "gpt-image-2.6-sunburst",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 8.0,
+          "output": 30.0,
+          "cache_read": 2.0,
+          "effective_from": "2026-11-09"
+        }
+      },
+      "sources": [
+        "openai"
+      ]
+    },
+    "gpt-oss-120b": {
+      "id": "gpt-oss-120b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.22,
+          "output": 0.77,
+          "effective_from": "2026-11-09"
+        }
+      },
+      "sources": [
+        "openrouter",
+        "regolo"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 1.1,
+            "output": 4.62,
+            "effective_from": "2026-11-01"
+          }
+        ]
+      }
+    },
+    "gpt-oss-20b": {
+      "id": "gpt-oss-20b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.11,
+          "output": 0.22,
+          "effective_from": "2026-11-09"
+        }
+      },
+      "sources": [
+        "openrouter",
+        "regolo"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 0.11,
+            "output": 0.462,
+            "effective_from": "2026-11-01"
+          }
+        ]
+      }
     },
     "kimi-k2.6": {
       "id": "kimi-k2.6",
@@ -2700,6 +2720,57 @@
         "moonshot"
       ]
     },
+    "meta-llama/llama-prompt-guard-2-22m": {
+      "id": "meta-llama/llama-prompt-guard-2-22m",
+      "vendor": "groq",
+      "tiers": {
+        "standard": {
+          "input": 0.03,
+          "output": 0.03,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "groq"
+      ]
+    },
+    "meta-llama/llama-prompt-guard-2-86m": {
+      "id": "meta-llama/llama-prompt-guard-2-86m",
+      "vendor": "groq",
+      "tiers": {
+        "standard": {
+          "input": 0.04,
+          "output": 0.04,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "groq"
+      ]
+    },
+    "mistral-small-4-119b": {
+      "id": "mistral-small-4-119b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.22,
+          "output": 0.77,
+          "effective_from": "2026-11-09"
+        }
+      },
+      "sources": [
+        "regolo"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 0.55,
+            "output": 2.31,
+            "effective_from": "2026-11-01"
+          }
+        ]
+      }
+    },
     "o1": {
       "id": "o1",
       "vendor": "openai",
@@ -2792,6 +2863,133 @@
         "llm-prices.com",
         "openai"
       ]
+    },
+    "openai/gpt-oss-120b": {
+      "id": "openai/gpt-oss-120b",
+      "vendor": "groq",
+      "tiers": {
+        "standard": {
+          "input": 0.15,
+          "output": 0.6,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "groq"
+      ]
+    },
+    "openai/gpt-oss-20b": {
+      "id": "openai/gpt-oss-20b",
+      "vendor": "groq",
+      "tiers": {
+        "standard": {
+          "input": 0.075,
+          "output": 0.3,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "groq"
+      ]
+    },
+    "openai/gpt-oss-safeguard-20b": {
+      "id": "openai/gpt-oss-safeguard-20b",
+      "vendor": "groq",
+      "tiers": {
+        "standard": {
+          "input": 0.075,
+          "output": 0.3,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "groq"
+      ]
+    },
+    "qwen/qwen3.8-27b": {
+      "id": "qwen/qwen3.8-27b",
+      "vendor": "groq",
+      "tiers": {
+        "standard": {
+          "input": 0.8,
+          "output": 4.0,
+          "effective_from": "2026-11-01"
+        }
+      },
+      "sources": [
+        "groq"
+      ]
+    },
+    "qwen3.5-122b": {
+      "id": "qwen3.5-122b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.66,
+          "output": 3.74,
+          "effective_from": "2026-11-09"
+        }
+      },
+      "sources": [
+        "regolo"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 1.1,
+            "output": 4.62,
+            "effective_from": "2026-11-01"
+          }
+        ]
+      }
+    },
+    "qwen3.5-9b": {
+      "id": "qwen3.5-9b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.11,
+          "output": 0.22,
+          "effective_from": "2026-11-09"
+        }
+      },
+      "sources": [
+        "openrouter",
+        "regolo"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 0.077,
+            "output": 0.385,
+            "effective_from": "2026-11-01"
+          }
+        ]
+      }
+    },
+    "qwen3.8-27b": {
+      "id": "qwen3.8-27b",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.55,
+          "output": 3.74,
+          "effective_from": "2026-11-09"
+        }
+      },
+      "sources": [
+        "openrouter",
+        "regolo"
+      ],
+      "history": {
+        "standard": [
+          {
+            "input": 0.55,
+            "output": 2.31,
+            "effective_from": "2026-11-01"
+          }
+        ]
+      }
     }
   },
   "usage_prices": {
@@ -3398,6 +3596,74 @@
       "source_url": "https://developers.openai.com/api/docs/pricing",
       "note": "Standard image modalities; cached rates require an endpoint that supports caching.",
       "effective_from": "2026-10-29"
+    },
+    "openai.image.gpt-image-2.6-flare": {
+      "id": "openai.image.gpt-image-2.6-flare",
+      "vendor": "openai",
+      "rates": {
+        "input_image": {
+          "amount": 8.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_image": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 30.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_text": {
+          "amount": 5.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_text": {
+          "amount": 1.25,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "note": "Standard image modalities; cached rates require an endpoint that supports caching.",
+      "effective_from": "2026-11-09"
+    },
+    "openai.image.gpt-image-2.6-sunburst": {
+      "id": "openai.image.gpt-image-2.6-sunburst",
+      "vendor": "openai",
+      "rates": {
+        "input_image": {
+          "amount": 8.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_image": {
+          "amount": 2.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "output_image": {
+          "amount": 30.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "input_text": {
+          "amount": 5.0,
+          "per": 1000000,
+          "unit": "tokens"
+        },
+        "cached_input_text": {
+          "amount": 1.25,
+          "per": 1000000,
+          "unit": "tokens"
+        }
+      },
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "note": "Standard image modalities; cached rates require an endpoint that supports caching.",
+      "effective_from": "2026-11-09"
     },
     "openai.web_search": {
       "id": "openai.web_search",

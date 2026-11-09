@@ -42,4 +42,15 @@ user has supplied — the agent NEVER writes into raw/.
 - [[alert-tiers-are-not-data-tiers]] — watched vs background drift, `watch.toml`,
   version parsing across vendor id shapes, why a broken source still wins
 
+## parsing vendor pages
+- [[a-renamed-column-deletes-a-fact]] — OpenAI renamed `cache writes` to
+  `30m write`; a needle that stops matching records "unpublished", and the
+  history push archives the right answer
+
+## consumers & the delivery seam
+- [[consumers-bind-the-package-not-the-json]] — both apps import `load_book`
+  and read our objects, so new fields are inert and removals break; the real
+  fragility is `cache_write` vs `cache_creation` across the seam
+
 # orphans
+

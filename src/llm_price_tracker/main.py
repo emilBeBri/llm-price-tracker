@@ -66,7 +66,11 @@ def _price_cell(p: Price | None) -> str:
     if p is None:
         return '—'
     s = f'{_money(p.input)}/{_money(p.output)}'
-    return f'{s}·peak' if p.peak is not None else s
+    if p.peak is not None:
+        s += '·peak'
+    if p.long_context is not None:
+        s += '·band'
+    return s
 
 
 def _cache_note(old: Price | None, new: Price | None) -> str:
@@ -102,6 +106,38 @@ def _announce_cell(p: Price | None) -> str:
         f' → {_money(f.input)}/{_money(f.output)} @{f.effective_from}'
         for f in (p.scheduled or [])
     )
+
+
+def _band_note(old: Price | None, new: Price | None) -> str:
+    """' ·band >100,000 $0.50/$2.50' when the prompt-size surcharge moved.
+
+    Rendered separately from `_cache_note` because a band change is its own
+    fact: it must stay visible even when input/output moved in the same
+    refresh, and a band arriving on a row whose headline rate did not change
+    would otherwise print as an identical-price `CHANGED` — the kind of row a
+    reader learns to skim past.
+    """
+
+    def sig(p: Price | None):
+        if p is None or p.long_context is None:
+            return None
+        band = p.long_context
+        return (
+            p.long_context_above,
+            band.input,
+            band.output,
+            band.cache_read,
+            band.cache_write,
+        )
+
+    before, after = sig(old), sig(new)
+    if before == after:
+        return ''
+    if after is None:
+        return f' ·band removed (was >{before[0]:,})'
+    if before is None:
+        return f' ·band >{after[0]:,} {_money(after[1])}/{_money(after[2])}'
+    return f' ·band >{before[0]:,}→{after[0]:,} {_money(after[1])}/{_money(after[2])}'
 
 
 def _fetch_or_exit(timeout: float):
@@ -156,7 +192,10 @@ def _drift_table(deltas, title: str, title_style: str) -> Table:
             d.model_id,
             d.drift.value,
             _price_cell(d.old),
-            _price_cell(d.new) + _announce_cell(d.new) + _cache_note(d.old, d.new),
+            _price_cell(d.new)
+            + _announce_cell(d.new)
+            + _cache_note(d.old, d.new)
+            + _band_note(d.old, d.new),
             ', '.join(d.verdict.corroborated_by) if d.verdict else '',
         )
     return table
@@ -493,6 +532,17 @@ def show(
     for k, entry in rows.items():
         if entry.note:
             console.print(f'[yellow]* {k}[/] — {entry.note}')
+    # The prompt-size surcharge is a second rate the model charges, and a book
+    # that prints only the cheaper band silently under-quotes every large
+    # prompt. Shown for `--at` too: the band of the row in force on that date
+    # is what a 120k-token call was billed at.
+    for k, entry in rows.items():
+        p = entry.price_at(when) if when else entry.tiers.get(STANDARD)
+        if p is not None and p.long_context is not None:
+            console.print(
+                f'[dim]{k} ·band >{p.long_context_above:,} '
+                f'{_money(p.long_context.input)}/{_money(p.long_context.output)}[/]'
+            )
     if not when:
         # The rate in force is not the whole vendor fact. A published future
         # rate that `show` silently omits is the same quiet wrongness this whole

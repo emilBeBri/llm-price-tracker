@@ -387,6 +387,67 @@ def test_a_cache_rate_the_vendor_stopped_publishing_is_changed():
     assert [p.cache_read for p in entry.history[STANDARD]] == [0.125]
 
 
+def test_a_band_appearing_on_an_unchanged_rate_is_changed_and_archived():
+    """The prompt-size surcharge is a rate fact, so it participates in the
+    history push: a band that arrives, moves its threshold or is withdrawn has
+    to archive the outgoing row. Without that, the first enrichment would
+    record a band and produce no diff at all."""
+    base = Price(
+        input=0.1, output=0.5, cache_read=0.01, cache_write=0.125,
+        effective_from='2026-10-16',
+    )
+    book = _book('haiku', base)
+    banded = base.model_copy(
+        update={
+            'long_context_above': 100_000,
+            'long_context': Price(
+                input=0.5, output=2.5, cache_read=0.05, cache_write=0.625
+            ),
+        }
+    )
+    verdicts = reconcile([_res('anthropic', {'haiku': banded})])
+    deltas = diff_book(book, verdicts)
+    assert deltas[0].drift is Drift.CHANGED
+
+    entry = apply_deltas(book, deltas, updated_at='2026-11-09').models['haiku']
+    assert entry.standard.long_context_above == 100_000
+    assert entry.standard.long_context.input == 0.5
+    # The predecessor is the bandless row that was in force before we looked,
+    # dated as it was rather than as of the enrichment.
+    assert [p.long_context for p in entry.history[STANDARD]] == [None]
+    assert entry.history[STANDARD][0].effective_from == '2026-10-16'
+
+
+def test_a_band_only_edit_moves_the_threshold_without_touching_the_rates():
+    band = Price(input=0.5, output=2.5)
+    current = Price(
+        input=0.1, output=0.5, long_context_above=100_000, long_context=band
+    )
+    book = _book('haiku', current)
+    moved = current.model_copy(update={'long_context_above': 200_000})
+    verdicts = reconcile([_res('anthropic', {'haiku': moved})])
+    deltas = diff_book(book, verdicts)
+    assert deltas[0].drift is Drift.CHANGED
+    entry = apply_deltas(book, deltas, updated_at='2026-11-09').models['haiku']
+    assert entry.standard.long_context_above == 200_000
+    assert [p.long_context_above for p in entry.history[STANDARD]] == [100_000]
+
+
+def test_a_withdrawn_band_is_changed_and_the_surcharge_disappears():
+    current = Price(
+        input=0.1, output=0.5,
+        long_context_above=100_000, long_context=Price(input=0.5, output=2.5),
+    )
+    book = _book('haiku', current)
+    verdicts = reconcile([_res('anthropic', {'haiku': Price(input=0.1, output=0.5)})])
+    deltas = diff_book(book, verdicts)
+    assert deltas[0].drift is Drift.CHANGED
+    entry = apply_deltas(book, deltas, updated_at='2026-11-09').models['haiku']
+    assert entry.standard.long_context is None
+    assert entry.standard.long_context_above is None
+    assert [p.long_context is not None for p in entry.history[STANDARD]] == [True]
+
+
 def test_a_retracted_announcement_does_not_survive_a_refresh():
     """Anthropic cancelled Sonnet 5's scheduled increase outright — the page
     says so in as many words. Announcements are recomputed from the page every

@@ -47,6 +47,34 @@ and it then survives every later refresh. Nothing in the schema enforces that
 a note stays true — the daily `check` catches the price flip within 24h, and
 the note is what tells a reader the flip is *scheduled* rather than a surprise.
 
+## The band axis already exists downstream (2026-11-09)
+
+The context-tier deferral's trigger ("first real >200k usage on a tiered model in
+a consuming app") has fired — not here, in bebri-chat, which hand-types the band
+as a local DELTA row in `data/llm-prices.json`: `long_context_threshold` plus a
+full `long_context` row, ~30 models, each with a prose note that says why. One of
+those notes says it outright: "the tracker book has no band axis, hence the local
+delta row." Thresholds in the wild: Anthropic 100k, xAI 200k, OpenAI 272k,
+Gemini 200k. bebri-chat also hand-types ~20 `flex` service-tier deltas the same
+way.
+
+So the book's silence has a cost that was not visible from this repo: every one
+of those rows is a vendor fact that nothing re-checks, cannot be diffed by
+`check`, and drifts silently if a vendor changes its multiplier — which is
+exactly the failure class in the README table (the missed 5x cut). The trigger
+should be read as fired and the deferral as "now a known drift hole", not
+"waiting".
+
+The 106-llm-pricing clone (`git-clones/106-llm-pricing`, an external cost-model
+report) supplies the sizing and the trap. Sizing: at a 120k-token prompt with 88%
+cache hits, Haiku 5.5 and gpt-6-luna list identically at 0.10/0.50 and differ by
+6.8x on the bill, entirely from the cliff. Trap: its `compute.py` reconstructs
+`cache_write = cache_read * 12.5` inside the cliff branch, because the above-threshold
+block on the page does not publish every rate. That derivation is Anthropic-only
+(Moonshot publishes cache write at 1.0x input, not 1.25x) and is precisely the
+laundering `Price`'s docstring forbids — an unpublished above-threshold rate must
+be `None`, not derived.
+
 ## Report claims rejected outright
 
 - **"Seed from LiteLLM, ~1k models free"** — contradicts the report's own
