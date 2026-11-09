@@ -47,6 +47,11 @@ user has supplied — the agent NEVER writes into raw/.
   `30m write`; a needle that stops matching records "unpublished", and the
   history push archives the right answer
 
+## prompt-size bands
+- [[bands-are-now-in-the-book-for-two-vendors]] — Anthropic, OpenAI and Google
+  cliffs recorded with first-observed dating; worth 37% of a real bill, and
+  still inert downstream because no adapter copies `long_context`
+
 ## consumers & the delivery seam
 - [[consumers-bind-the-package-not-the-json]] — both apps import `load_book`
   and read our objects, so new fields are inert and removals break; the real
@@ -54,3 +59,6 @@ user has supplied — the agent NEVER writes into raw/.
 
 # orphans
 
+# project state
+
+[[AGENT-TODO]] — project todo MOC, managed by the todo_* tools.
