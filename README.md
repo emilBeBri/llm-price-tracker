@@ -226,6 +226,7 @@ not inferred, and a price card cannot supply a usage count the API omitted.
 | `azure` | azure.microsoft.com Azure OpenAI image pricing | HTML embedded regional data |
 | `deepseek` | api-docs.deepseek.com pricing | HTML |
 | `moonshot` | platform.kimi.ai chat-k3 pricing | markdown (MDX) |
+| `mistral` | docs.mistral.ai inference pricing | markdown |
 | `zai` | docs.z.ai pricing, every per-1M-token table | markdown |
 | `llm-prices.com` | Simon Willison's aggregated feed | JSON |
 | `openrouter` | openrouter.ai `/api/v1/models` | JSON |

@@ -1,6 +1,5 @@
 # A money cell can lie about its unit, and about being the price
-
-tags = #gotcha #sources #parsing #pricing #google #zai
+tags = #gotcha #sources #parsing #pricing #google #zai #mistral
 
 `dollars()` takes the **first** `$` amount in a cell. That heuristic is right
 often enough to be dangerous, and two cases found on 2026-09-04 show both ways
@@ -87,7 +86,16 @@ only $0.039/image. Three deliberate choices:
 See [[parse-the-table-not-the-heading]] for the other half of the same day's
 z.ai work.
 
+## Mistral mixes minutes and tokens in one row
+
+Mistral's Voxtral Small price cell lists $0.004/minute audio input before
+$0.10/M token input and $0.40/M token output. `MistralSource` matches each
+label **and unit** before reading its amount; taking the first input amount
+would record the per-minute price as the token rate. Per-page OCR rows do not
+enter the token book.
+
 # sources
 
 session 2026-09-04; snapshots
 `$XDG_CACHE_HOME/llm-price-tracker/raw/2026-09-04/{zai.md,google.html,openrouter.json}`.
+Mistral pricing source and mixed-unit parsing — uid: d5de07e4c70f

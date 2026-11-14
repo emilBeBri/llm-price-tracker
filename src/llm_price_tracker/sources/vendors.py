@@ -1386,6 +1386,67 @@ EUR_USD = 1.10
 _EUR_AMOUNT = re.compile(r'€\s*([0-9][0-9,]*(?:\.[0-9]+)?)')
 
 
+class MistralSource(Source):
+    """Mistral's own token-priced models from its API pricing tables.
+
+    The same table also offers third-party Z.ai/DeepSeek models, and Voxtral's
+    row mixes per-minute audio with per-million-token prices.  Only Mistral's
+    own IDs and explicitly token-denominated input/output rates belong here.
+    """
+
+    name = 'mistral'
+    url = 'https://docs.mistral.ai/inference/pricing.md'
+    accept = 'text/markdown,text/plain,*/*'
+    expect = ('mistral-large-4',)
+
+    _OWNED_PREFIXES = (
+        'mistral-', 'ministral-', 'codestral-', 'voxtral-', 'magistral-',
+        'devstral-', 'mixtral-', 'open-mistral-', 'open-mixtral-',
+        'open-codestral-', 'mathstral-', 'shieldstral-', 'timestral-',
+    )
+    _RATE = re.compile(
+        r'^\s*(cached input|input|output)\s+\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)'
+        r'\s*/\s*M\s+tokens?\b',
+        re.IGNORECASE,
+    )
+
+    def parse(self, body: str) -> dict[str, Price]:
+        out: dict[str, Price] = {}
+        for _, rows in _pipe_tables(html.unescape(body)):
+            if not rows:
+                continue
+            header = [cell.lower() for cell in rows[0]]
+            api_col = _column_index(header, 'api', 'name')
+            price_col = _column_index(header, 'price')
+            if api_col is None or price_col is None:
+                continue
+            for row in rows[1:]:
+                if len(row) <= max(api_col, price_col):
+                    continue
+                api_name = re.search(r'`([^`]+)`', row[api_col])
+                if api_name is None:
+                    continue
+                model_id = api_name[1].strip()
+                if not model_id.startswith(self._OWNED_PREFIXES):
+                    continue
+                rates: dict[str, float] = {}
+                for part in re.split(r'<br\s*/?>', row[price_col], flags=re.IGNORECASE):
+                    match = self._RATE.match(part)
+                    if match:
+                        rates[match[1].lower()] = float(match[2].replace(',', ''))
+                if 'input' not in rates or 'output' not in rates:
+                    continue
+                out.setdefault(
+                    model_id,
+                    Price(
+                        input=rates['input'],
+                        output=rates['output'],
+                        cache_read=rates.get('cached input'),
+                    ),
+                )
+        return out
+
+
 def _euros(cell: str) -> float | None:
     m = _EUR_AMOUNT.search(cell)
     return float(m.group(1).replace(',', '')) if m else None
