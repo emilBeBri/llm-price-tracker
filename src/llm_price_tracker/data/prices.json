@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-14",
+  "updated_at": "2026-11-21",
   "models": {
     "apertus-70b": {
       "id": "apertus-70b",
@@ -795,6 +795,21 @@
         ]
       }
     },
+    "deepseek-v4.1-flash": {
+      "id": "deepseek-v4.1-flash",
+      "vendor": "regolo",
+      "tiers": {
+        "standard": {
+          "input": 0.495,
+          "output": 1.98,
+          "effective_from": "2026-11-21"
+        }
+      },
+      "sources": [
+        "openrouter",
+        "regolo"
+      ]
+    },
     "gemini-2.0-flash": {
       "id": "gemini-2.0-flash",
       "vendor": "google",
@@ -1366,6 +1381,65 @@
       ],
       "note": "No rate was published anywhere readable before 2026-10-16; a pre-2026-10-16 call therefore has no recorded rate, and price_at() extrapolates this row for it."
     },
+    "gemini-4-carbon": {
+      "id": "gemini-4-carbon",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 10.0,
+          "cache_read": 0.1,
+          "effective_from": "2026-11-21",
+          "scheduled": [
+            {
+              "input": 4.0,
+              "output": 20.0,
+              "cache_read": 0.2,
+              "effective_from": "2026-12-01"
+            }
+          ]
+        }
+      },
+      "sources": [
+        "google",
+        "llm-prices.com",
+        "openrouter"
+      ]
+    },
+    "gemini-4-hydrogen": {
+      "id": "gemini-4-hydrogen",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 1.5,
+          "output": 7.5,
+          "cache_read": 0.075,
+          "effective_from": "2026-11-21"
+        }
+      },
+      "sources": [
+        "google",
+        "llm-prices.com",
+        "openrouter"
+      ]
+    },
+    "gemini-4-neon": {
+      "id": "gemini-4-neon",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 3.0,
+          "output": 15.0,
+          "cache_read": 0.15,
+          "effective_from": "2026-11-21"
+        }
+      },
+      "sources": [
+        "google",
+        "llm-prices.com",
+        "openrouter"
+      ]
+    },
     "gemini-nano-banana-2.1": {
       "id": "gemini-nano-banana-2.1",
       "vendor": "google",
@@ -1508,6 +1582,20 @@
           }
         ]
       }
+    },
+    "genie-4": {
+      "id": "genie-4",
+      "vendor": "google",
+      "tiers": {
+        "standard": {
+          "input": 1.5,
+          "output": 9.0,
+          "effective_from": "2026-11-21"
+        }
+      },
+      "sources": [
+        "google"
+      ]
     },
     "glm-4-32b-0414-128k": {
       "id": "glm-4-32b-0414-128k",
