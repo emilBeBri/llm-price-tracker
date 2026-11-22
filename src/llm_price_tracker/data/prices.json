@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-21",
+  "updated_at": "2026-11-22",
   "models": {
     "apertus-70b": {
       "id": "apertus-70b",
@@ -2779,6 +2779,54 @@
           }
         ]
       }
+    },
+    "gpt-6.2-astra": {
+      "id": "gpt-6.2-astra",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 8.0,
+          "output": 40.0,
+          "cache_read": 0.4,
+          "cache_write": 10.0,
+          "effective_from": "2026-11-22",
+          "long_context": {
+            "input": 16.0,
+            "output": 60.0,
+            "cache_read": 0.8,
+            "cache_write": 20.0
+          },
+          "long_context_above": 272000
+        }
+      },
+      "sources": [
+        "openai_model_page"
+      ],
+      "note": "Model page (2026-11-22): $8/$40, cache read 0.40, write 10.00; long-context band 2x input-and-cache, 1.5x output past 272K input."
+    },
+    "gpt-6.2-sol": {
+      "id": "gpt-6.2-sol",
+      "vendor": "openai",
+      "tiers": {
+        "standard": {
+          "input": 2.0,
+          "output": 10.0,
+          "cache_read": 0.1,
+          "cache_write": 2.5,
+          "effective_from": "2026-11-22",
+          "long_context": {
+            "input": 4.0,
+            "output": 15.0,
+            "cache_read": 0.2,
+            "cache_write": 5.0
+          },
+          "long_context_above": 272000
+        }
+      },
+      "sources": [
+        "openai_model_page"
+      ],
+      "note": "Model page (2026-11-22): $2/$10, cache read 0.10, write 2.50; past 272K input the whole request rebills at 2x input-and-cache and 1.5x output. Seeded from https://developers.openai.com/api/docs/models/gpt-6.2-sol, which the openai source does not parse - the pricing page it reads does not list the 6.2 line yet."
     },
     "gpt-image-1": {
       "id": "gpt-image-1",
