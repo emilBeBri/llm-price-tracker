@@ -185,6 +185,18 @@ class Price(BaseModel):
     # than change a comparison it may share with rows that publish no band.
     long_context_above: int | None = Field(default=None, ge=1)
 
+    # The largest prompt these rates are PUBLISHED for, EXCLUSIVE, on a tier
+    # that is priced for short context only (OpenAI's Fast table quotes
+    # "<272K"). It describes where the book has a published price — not proof
+    # that the API refuses a larger request — so a consumer above it must treat
+    # the cell as unpriced rather than invent a rate.
+    #
+    # Mutually exclusive with the band by construction: a published long rate
+    # already says where the next band starts, so a row carrying both would be
+    # two answers to one question. An unambiguously INCLUSIVE source limit is
+    # stored as N+1, keeping this field exclusive everywhere.
+    max_context: int | None = Field(default=None, ge=1)
+
     @model_validator(mode='after')
     def _one_selector_per_row(self) -> Price:
         """Refuse the shapes that would need a resolution order nobody asked for.
@@ -197,6 +209,10 @@ class Price(BaseModel):
         but a nested row may not carry announcements of its own, which is what
         keeps the diff and the sanity gate finite.
         """
+        if self.max_context is not None and self.long_context is not None:
+            raise ValueError(
+                'a row may not be restricted AND publish a long-context band'
+            )
         band = self.long_context
         if band is not None:
             if self.long_context_above is None:

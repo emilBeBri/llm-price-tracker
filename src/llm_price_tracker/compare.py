@@ -142,6 +142,11 @@ def _same(a: Price, b: Price) -> bool:
     # the history-push test: a band that appears, moves its threshold or is
     # withdrawn has to archive the outgoing row, and without this the whole
     # feature would be recorded and simultaneously invisible to the diff.
+    # A published restriction is a rate fact like the band: adding, moving or
+    # withdrawing it has to archive the outgoing row, or the book would record
+    # a row whose published range silently changed.
+    if (a.max_context or 0) != (b.max_context or 0):
+        return False
     if (a.long_context is None) != (b.long_context is None):
         return False
     if (a.long_context_above or 0) != (b.long_context_above or 0):
