@@ -278,10 +278,20 @@ class OpenAISource(Source):
         except StopIteration:
             return {}
 
-        # Contiguous pipe blocks, each read against its OWN header. The section
-        # carries the modern eleven-column table and then, after a blank line, a
-        # legacy four-column one for the older families; a blank line does not
-        # end a table here, so both used to be parsed against the first header.
+        out: dict[str, Price] = {}
+        for rows in self._blocks_from(lines, start):
+            for model, price in self._parse_block(rows, body).items():
+                out.setdefault(model, price)
+        return out
+
+    def _blocks_from(self, lines: list[str], start: int) -> list[list[list[str]]]:
+        """Contiguous pipe blocks after `start`, each read against its OWN header.
+
+        The section carries the modern eleven-column table and then, after a
+        blank line, a legacy four-column one for the older families; a blank
+        line does not end a table here, so both used to be parsed against the
+        first header.
+        """
         blocks: list[list[list[str]]] = []
         current: list[list[str]] = []
         for ln in lines[start + 1 :]:
@@ -299,12 +309,38 @@ class OpenAISource(Source):
             current.append(cells)
         if current:
             blocks.append(current)
+        return blocks
 
+    _FAST_SECTION = '### Fast pricing data'
+
+    def parse_tiers(self, body: str) -> dict[str, dict[str, Price]]:
+        """Fast (formerly Priority) rates, per model, from their own section.
+
+        The three-way long-block rule decides what an absent band means, and it
+        is the parser's own rule, not a re-derivation:
+
+        * the block has NO long-context columns (legacy four-column table):
+          no band distinction, unrestricted;
+        * long columns present with input/output published: a real band;
+        * long columns present and EVERY cell a dash: the tier is published for
+          short context only, so `max_context` records the boundary from the
+          page's own caption. A partly published block still raises.
+        """
+        lines = body.splitlines()
+        try:
+            start = next(i for i, ln in enumerate(lines) if ln.strip() == self._FAST_SECTION)
+        except StopIteration:
+            return {}
         out: dict[str, Price] = {}
-        for rows in blocks:
+        for rows in self._blocks_from(lines, start):
+            header = [c.lower() for c in rows[0]] if rows else []
+            has_long = any('long context' in h for h in header)
+            band = self._threshold(body) if has_long else None
             for model, price in self._parse_block(rows, body).items():
+                if band is not None and price.long_context is None:
+                    price = price.model_copy(update={'max_context': band})
                 out.setdefault(model, price)
-        return out
+        return {'fast': out} if out else {}
 
     def _parse_block(self, rows: list[list[str]], body: str) -> dict[str, Price]:
         if not rows:

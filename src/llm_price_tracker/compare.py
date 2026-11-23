@@ -333,6 +333,48 @@ def apply_usage_prices(
     return book.model_copy(update={'updated_at': updated_at, 'usage_prices': cards})
 
 
+def apply_tier_prices(
+    book: PriceBook, results: list[SourceResult], updated_at: str
+) -> PriceBook:
+    """Merge premium-tier observations into `entry.tiers`, per (model, tier).
+
+    Separate from `apply_deltas` on purpose: a Fast-only change must not appear
+    as a Standard change, so the standard diff path stays exactly as it was and
+    tier rows are reconciled here. A tier rate that moves is archived into
+    `history[tier]` like any other rate, which is what lets a past fast call be
+    priced at what it actually cost.
+
+    Only a model the book already knows can gain a tier row: a tier price for
+    an unknown id is a parser reading a table we do not track, not a new model.
+    """
+    models = dict(book.models)
+    changed = False
+    for result in results:
+        # NOT gated on `result.ok`: a source can be partly broken — OpenAI's is
+        # marked broken because its USAGE-price rows moved — while its token
+        # tables parse perfectly. The parsed tier rows are their own evidence.
+        for tier, rows in (result.tier_prices or {}).items():
+            for model_id, price in rows.items():
+                entry = models.get(model_id)
+                if entry is None:
+                    continue
+                tiers = dict(entry.tiers)
+                old = tiers.get(tier)
+                if old is not None and _same(old, price):
+                    continue
+                history = {k: list(v) for k, v in entry.history.items()}
+                if old is not None:
+                    history.setdefault(tier, []).append(_plain(old))
+                tiers[tier] = price.model_copy(update={'effective_from': updated_at})
+                models[model_id] = entry.model_copy(
+                    update={'tiers': tiers, 'history': history}
+                )
+                changed = True
+    if not changed:
+        return book
+    return book.model_copy(update={'models': models, 'updated_at': updated_at})
+
+
 def _plain(price: Price) -> Price:
     """The rate alone, with no announcements riding along.
 

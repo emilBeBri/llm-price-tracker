@@ -37,6 +37,11 @@ class SourceResult:
     # the live page has moved on. None only when the HTTP request itself failed.
     body: str | None = field(default=None, repr=False)
     usage_prices: dict[str, UsagePrice] = field(default_factory=dict)
+    # PREMIUM service-tier rates: {tier: {model_id: Price}}. Additive on
+    # purpose — `prices` stays the standard channel, and every vendor or
+    # aggregator parser keeps working untouched. Reconciled by (model, tier),
+    # so a Fast-only change never appears as a Standard change.
+    tier_prices: dict[str, dict[str, Price]] = field(default_factory=dict)
 
 
 def dollars(text: str) -> float | None:
@@ -82,6 +87,14 @@ class Source(ABC):
         """Image modalities and service fees; absent on token-only sources."""
         return {}
 
+    def parse_tiers(self, body: str) -> dict[str, dict[str, Price]]:
+        """Premium service-tier rates {tier: {model: Price}}; none by default.
+
+        Additive: a source that publishes only a standard table keeps working
+        unchanged, and a parser that grows a premium table declares it here.
+        """
+        return {}
+
     def fetch(self, client) -> SourceResult:
         body: str | None = None
         try:
@@ -90,6 +103,7 @@ class Source(ABC):
             body = resp.text
             prices = self.parse(body)
             usage_prices = self.parse_usage_prices(body)
+            tier_prices = self.parse_tiers(body)
         except Exception as e:  # noqa: BLE001 - one bad source must not kill a run
             return SourceResult(
                 self.name, self.url, False, note=f'{type(e).__name__}: {e}', body=body
@@ -116,6 +130,7 @@ class Source(ABC):
                 False,
                 prices=prices,
                 usage_prices=usage_prices,
+                tier_prices=tier_prices,
                 note=f'expected usage prices absent: {", ".join(missing_usage)}',
                 body=body,
             )
@@ -125,6 +140,7 @@ class Source(ABC):
                 self.url,
                 False,
                 prices=prices,
+                tier_prices=tier_prices,
                 note=(
                     f'parsed {len(prices)} rows but none match {list(self.expect)} '
                     f'— page structure changed'
@@ -141,7 +157,8 @@ class Source(ABC):
             self.url,
             True,
             prices=prices,
+            usage_prices=usage_prices,
+            tier_prices=tier_prices,
             note=note,
             body=body,
-            usage_prices=usage_prices,
         )

@@ -26,7 +26,9 @@ from .book import DATA_PATH, get_entry, load_book, save_book
 from .compare import (
     Agreement,
     Drift,
+    _same,
     apply_deltas,
+    apply_tier_prices,
     apply_usage_prices,
     diff_book,
     is_corroborated,
@@ -450,7 +452,23 @@ def refresh(
         )
         console.print(f'  usage    {key}: {rates}')
 
-    count = len(changed) + len(usage_updates)
+    # Premium-tier rows are reconciled on their own channel, so they must be
+    # counted here too: otherwise a Fast-only change reads as "already matches"
+    # and the early return below silently drops it.
+    today = datetime.now(UTC).date().isoformat()
+    tier_book = apply_tier_prices(book, results, today)
+    tier_changes = [
+        (model_id, tier)
+        for model_id, entry in tier_book.models.items()
+        for tier, row in entry.tiers.items()
+        if tier not in dict(book.models[model_id].tiers)
+        or not _same(dict(book.models[model_id].tiers)[tier], row)
+    ]
+    for model_id, tier in tier_changes:
+        row = tier_book.models[model_id].tiers[tier]
+        console.print(f'  tier     {tier:8} {model_id:34} -> {_price_cell(row)}')
+
+    count = len(changed) + len(usage_updates) + len(tier_changes)
     if not count:
         console.print('[green]Book already matches every source.[/]')
         return
@@ -462,9 +480,7 @@ def refresh(
         )
         raise typer.Exit(EXIT_DRIFT)
 
-    updated = apply_deltas(
-        book, deltas, updated_at=datetime.now(UTC).date().isoformat()
-    )
+    updated = apply_deltas(tier_book, deltas, updated_at=today)
     updated = apply_usage_prices(updated, usage_updates, updated.updated_at)
     save_book(updated, book_path)
     console.print(
