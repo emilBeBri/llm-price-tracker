@@ -7,7 +7,7 @@ whether to project a future price). Those belong to the app, not to this book.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -18,6 +18,30 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 # it can read and names this one as the default a caller gets when it does not
 # ask. Choosing among them is the caller's job, not the book's.
 STANDARD = 'standard'
+
+
+def as_utc(moment: datetime) -> datetime:
+    """A naive datetime is taken as UTC; an aware one is converted."""
+    return moment if moment.tzinfo is not None else moment.replace(tzinfo=UTC)
+
+
+def effective_moment(value: str | None) -> datetime | None:
+    """`effective_from` as an aware instant, or None when undated.
+
+    Two shapes are legal. A date-only string is a FIRST-OBSERVED lower bound
+    and means 00:00Z. A vendor that states a TIME — OpenAI's Pacific-time
+    promotion boundary does, "through February 28, 2027 (Pacific time)" —
+    stores an offset-bearing ISO instant, and that instant is what every
+    comparison uses. Comparing date-only strings instead is how the ultrafast
+    promotion once ended eight hours early.
+    """
+    if not value:
+        return None
+    try:
+        moment = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    return as_utc(moment)
 
 
 class TimeWindow(BaseModel):
@@ -294,8 +318,13 @@ class ModelEntry(BaseModel):
         rows = self.rate_history(tier)
         if not rows or at is None:
             return self.tiers.get(tier)
-        day = at.date().isoformat()
-        in_force = [p for p in rows if p.effective_from is None or p.effective_from <= day]
+        moment = as_utc(at)
+        in_force = [
+            p
+            for p in rows
+            if effective_moment(p.effective_from) is None
+            or effective_moment(p.effective_from) <= moment
+        ]
         return in_force[-1] if in_force else rows[0]
 
 
@@ -321,10 +350,16 @@ class UsagePrice(BaseModel):
     def price_at(self, at: datetime | None = None) -> UsagePrice:
         if at is None:
             return self
-        rows = sorted([*self.history, self], key=lambda row: row.effective_from or '')
+        moment = as_utc(at)
+        rows = sorted(
+            [*self.history, self],
+            key=lambda row: effective_moment(row.effective_from) or datetime.min.replace(tzinfo=UTC),
+        )
         in_force = [
-            row for row in rows
-            if row.effective_from is None or row.effective_from <= at.date().isoformat()
+            row
+            for row in rows
+            if effective_moment(row.effective_from) is None
+            or effective_moment(row.effective_from) <= moment
         ]
         return in_force[-1] if in_force else rows[0]
 

@@ -2885,7 +2885,7 @@
               "output": 240.0,
               "cache_read": 2.4,
               "cache_write": 60.0,
-              "effective_from": "2027-03-01",
+              "effective_from": "2027-03-01T08:00:00+00:00",
               "long_context": {
                 "input": 96.0,
                 "output": 360.0,
@@ -2957,7 +2957,7 @@
               "output": 60.0,
               "cache_read": 0.6,
               "cache_write": 15.0,
-              "effective_from": "2027-03-01",
+              "effective_from": "2027-03-01T08:00:00+00:00",
               "long_context": {
                 "input": 24.0,
                 "output": 90.0,

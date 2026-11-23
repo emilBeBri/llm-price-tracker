@@ -19,9 +19,18 @@ Two rules here are the whole point of the module:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 
-from .models import STANDARD, ModelEntry, Price, PriceBook, UsagePrice
+from .models import (
+    STANDARD,
+    ModelEntry,
+    Price,
+    PriceBook,
+    UsagePrice,
+    as_utc,
+    effective_moment,
+)
 from .sources.base import SourceResult
 
 # Sub-cent-per-million differences are rounding noise between a vendor's table
@@ -329,7 +338,7 @@ def _plain(price: Price) -> Price:
     return price.model_copy(update={'scheduled': None})
 
 
-def _promote_arrived(entry: ModelEntry, today: str) -> ModelEntry:
+def _promote_arrived(entry: ModelEntry, now: str | datetime) -> ModelEntry:
     """Fold an announced rate whose start date has arrived into `tiers`.
 
     Runs over EVERY model, not only the ones this run changed. A vendor page
@@ -344,23 +353,37 @@ def _promote_arrived(entry: ModelEntry, today: str) -> ModelEntry:
     one place in this book where `effective_from` is a vendor date instead of a
     first-observed one, because here the vendor said it out loud.
     """
-    price = entry.tiers.get(STANDARD)
-    if price is None or not price.scheduled:
+    moment = as_utc(now) if isinstance(now, datetime) else effective_moment(now)
+    if moment is None:
         return entry
-    arrived = [
-        p for p in price.scheduled if p.effective_from and p.effective_from <= today
-    ]
-    if not arrived:
-        return entry
-    winner = max(arrived, key=lambda p: p.effective_from or '')
-    remaining = [p for p in price.scheduled if p is not winner]
-    promoted = winner.model_copy(update={'scheduled': remaining or None})
-    history = {k: list(v) for k, v in entry.history.items()}
-    if not _same(price, promoted):
-        history.setdefault(STANDARD, []).append(_plain(price))
     tiers = dict(entry.tiers)
-    tiers[STANDARD] = promoted
-    return entry.model_copy(update={'tiers': tiers, 'history': history})
+    history = {k: list(v) for k, v in entry.history.items()}
+    changed = False
+    # EVERY tier, not just standard: the ultrafast row is promoted on the same
+    # schedule and would otherwise stay promotional for at=None callers for
+    # ever, quoting a 3x rate the vendor has already doubled.
+    for name, price in entry.tiers.items():
+        if not price.scheduled:
+            continue
+        arrived = [
+            p
+            for p in price.scheduled
+            if effective_moment(p.effective_from) is not None
+            and effective_moment(p.effective_from) <= moment
+        ]
+        if not arrived:
+            continue
+        winner = max(arrived, key=lambda p: effective_moment(p.effective_from))
+        remaining = [p for p in price.scheduled if p is not winner]
+        promoted = winner.model_copy(update={'scheduled': remaining or None})
+        if not _same(price, promoted):
+            history.setdefault(name, []).append(_plain(price))
+        tiers[name] = promoted
+        changed = True
+    return (
+        entry.model_copy(update={'tiers': tiers, 'history': history})
+        if changed else entry
+    )
 
 
 def _rate_eq(x: float | None, y: float | None) -> bool:
